@@ -76,6 +76,7 @@ pnpm agent honest           # Claude buys a quote (needs ANTHROPIC_API_KEY)
 pnpm agent cheat
 pnpm testnet:raw-escrow     # M1: ledger-only proof of create/finish/cancel
 pnpm testnet:settle-escrow  # M3/M4: a client-signed escrow through the facilitator
+pnpm testnet:reclaim-expired  # cancel any of the buyer's escrows past their deadline
 ```
 
 Wallet seeds live in `.env` (gitignored). Never commit or print them.
