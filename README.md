@@ -20,6 +20,7 @@ Testnet only. Wallet seeds live in `.env` (gitignored); never commit or print th
 ```bash
 pnpm testnet:setup        # fund buyer, seller, arbiter and watcher wallets; writes .env
 pnpm testnet:raw-escrow   # M1: prove create/finish/cancel and the three failure cases (~2 min)
+pnpm testnet:reclaim-expired  # cancel any of the buyer's escrows past their deadline
 ```
 
 ## License

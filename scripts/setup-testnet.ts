@@ -11,6 +11,7 @@ import type { Wallet } from "xrpl";
 import {
   DEFAULT_WS_URL,
   ENV_PATH,
+  FAUCET_HOST,
   ROLES,
   type Role,
   accountLink,
@@ -34,7 +35,7 @@ async function main(): Promise<void> {
       wallets = {} as Record<Role, Wallet>;
       for (const role of ROLES) {
         process.stdout.write(`Funding ${role} from the testnet faucet... `);
-        const { wallet } = await client.fundWallet();
+        const { wallet } = await client.fundWallet(null, { faucetHost: FAUCET_HOST });
         wallets[role] = wallet;
         console.log("done");
       }
