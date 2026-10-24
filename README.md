@@ -17,6 +17,11 @@ pnpm check   # lint, typecheck, build, test
 
 Testnet only. Wallet seeds live in `.env` (gitignored); never commit or print them.
 
+```bash
+pnpm testnet:setup        # fund buyer, seller, arbiter and watcher wallets; writes .env
+pnpm testnet:raw-escrow   # M1: prove create/finish/cancel and the three failure cases (~2 min)
+```
+
 ## License
 
 Apache-2.0. See [`LICENSE`](./LICENSE) and [`NOTICE`](./NOTICE).

@@ -8,3 +8,10 @@ export const XRPL_NETWORKS = {
 } as const;
 
 export { RIPPLE_EPOCH_OFFSET, toRippleTime, fromRippleTime } from "./time.js";
+export {
+  PREIMAGE_LENGTH,
+  newPreimage,
+  conditionFromPreimage,
+  fulfillmentFromPreimage,
+  isWellFormedCondition,
+} from "./condition.js";

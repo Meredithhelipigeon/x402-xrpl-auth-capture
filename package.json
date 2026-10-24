@@ -11,10 +11,12 @@
   "scripts": {
     "build": "pnpm -r --filter ./packages/** build",
     "test": "pnpm -r --filter ./packages/** test",
-    "typecheck": "pnpm -r typecheck",
+    "typecheck": "pnpm -r typecheck && tsc -p scripts",
     "lint": "eslint .",
     "check": "pnpm lint && pnpm typecheck && pnpm build && pnpm test",
-    "format": "prettier --write \"**/*.{ts,json,md,yml}\""
+    "format": "prettier --write \"**/*.{ts,json,md,yml}\"",
+    "testnet:setup": "tsx scripts/setup-testnet.ts",
+    "testnet:raw-escrow": "tsx scripts/raw-escrow.ts"
   },
   "pnpm": {
     "onlyBuiltDependencies": [
@@ -24,10 +26,12 @@
   "devDependencies": {
     "@eslint/js": "^10.0.1",
     "@types/node": "^22.19.0",
+    "dotenv": "^18.0.9",
     "eslint": "^10.13.0",
     "prettier": "^3.9.10",
     "tsx": "^4.23.15",
     "typescript": "^5.9.3",
-    "typescript-eslint": "^8.72.0"
+    "typescript-eslint": "^8.72.0",
+    "xrpl": "^5.3.0"
   }
 }
