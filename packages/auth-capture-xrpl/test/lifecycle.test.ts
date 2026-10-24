@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { RippledError } from "xrpl";
 import { conditionFromPreimage, fulfillmentFromPreimage, newPreimage } from "../src/condition.js";
 import { buildEscrowCancel, buildEscrowFinish, getEscrowState } from "../src/lifecycle/index.js";
 
@@ -54,7 +55,8 @@ describe("getEscrowState", () => {
   });
 
   it("is closed when the ledger reports entryNotFound", async () => {
-    const err = Object.assign(new Error("entryNotFound"), { data: { error: "entryNotFound" } });
+    // Same shape xrpl.js 5.x throws: message is rippled's error_message, the code is in data.error.
+    const err = new RippledError("Entry not found.", { error: "entryNotFound", error_message: "Entry not found.", status: "error" });
     const client = { request: async () => Promise.reject(err) } as never;
     await expect(getEscrowState(client, ref)).resolves.toBe("closed");
   });

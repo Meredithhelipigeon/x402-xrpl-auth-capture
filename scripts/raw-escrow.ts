@@ -17,6 +17,7 @@ import type { Client, SubmittableTransaction, Wallet } from "xrpl";
 import {
   conditionFromPreimage,
   fulfillmentFromPreimage,
+  getEscrowState,
   newPreimage,
 } from "../packages/auth-capture-xrpl/src/index.js";
 import { connect, loadWallets, sleep, txLink, validatedCloseTime, xrpBalance } from "./lib/testnet.js";
@@ -50,16 +51,6 @@ async function submit(client: Client, wallet: Wallet, tx: SubmittableTransaction
     const message = err instanceof Error ? err.message : String(err);
     const code = /\b(te[mfcl][A-Z_]+|tec[A-Z_]+)\b/.exec(message)?.[1] ?? `error: ${message}`;
     return { result: code, hash: "" };
-  }
-}
-
-async function escrowExists(client: Client, owner: string, seq: number): Promise<boolean> {
-  try {
-    await client.request({ command: "ledger_entry", escrow: { owner, seq }, ledger_index: "validated" });
-    return true;
-  } catch (err) {
-    if (err instanceof Error && /entryNotFound/.test(err.message)) return false;
-    throw err;
   }
 }
 
@@ -146,7 +137,7 @@ async function main(): Promise<void> {
     });
     const sellerAfter = Number(await xrpBalance(client, w.seller.classicAddress));
     const sellerGain = Math.round((sellerAfter - sellerStart) * 1e6);
-    const aClosed = !(await escrowExists(client, w.buyer.classicAddress, seqA));
+    const aClosed = (await getEscrowState(client, { owner: w.buyer.classicAddress, offerSequence: seqA })) === "closed";
     record(
       `1. finish with the right fulfillment (seller +${sellerGain} drops, escrow closed: ${aClosed})`,
       "tesSUCCESS",
@@ -180,7 +171,7 @@ async function main(): Promise<void> {
     });
     const buyerAfterCancel = Number(await xrpBalance(client, w.buyer.classicAddress));
     const refund = Math.round((buyerAfterCancel - buyerBeforeCancel) * 1e6);
-    const bClosed = !(await escrowExists(client, w.buyer.classicAddress, seqB));
+    const bClosed = (await getEscrowState(client, { owner: w.buyer.classicAddress, offerSequence: seqB })) === "closed";
     record(
       `2. cancel after expiry (buyer +${refund} drops, escrow closed: ${bClosed})`,
       "tesSUCCESS",
