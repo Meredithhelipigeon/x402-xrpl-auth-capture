@@ -13,6 +13,7 @@ Every non-obvious choice, newest first. Format: date, decision, reason, who deci
 - **TypeScript 5.9, not 7.** `typescript-eslint` supports TypeScript below 6.1, and tsup's declaration build uses the TypeScript JS API. Who: Claude (default).
 - **Unix-seconds guard in `toRippleTime`.** Values of 10^10 or more are rejected as probable milliseconds, because xrpl.js's own helper takes milliseconds and mixing them up silently sets deadlines tens of thousands of years out. Who: Claude (default).
 - **License copyright line reads "The x402-xrpl-auth-capture authors".** Neutral holder while the project's owning entity is undecided. Who: Claude (default); Meredith may change it.
+- **PR descriptions follow the `raise-pr` skill.** The skill is kept as Meredith wrote it in `.claude/skills/raise-pr/`; the copy GitHub fills in, `.github/pull_request_template.md`, defines "the contract" for this repo as the x402 wire format (AGENTS.md section 3) and the Arbiter API that Misa implements (sections 5.3 and 7.2), since there is no `packages/core` here. Titles use the milestone as the work-item ID, e.g. `[M3]`. Who: Meredith (skill); Claude (default for the contract wording).
 
 ## Later
 
