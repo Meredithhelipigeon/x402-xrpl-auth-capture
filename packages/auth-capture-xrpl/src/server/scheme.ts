@@ -55,6 +55,8 @@ export class AuthCaptureXrplServerScheme implements SchemeNetworkServer {
   readonly schemeHooks: SchemeServerHooks;
   /** Collect results by orderId, so the skipped after-handler settle can echo the escrow's tx hash. */
   private readonly collected = new Map<string, SettleResponse>();
+  /** Orders with a collect in progress, mapped to the signed blob of the request that claimed them. */
+  private readonly inFlight = new Map<string, string>();
 
   constructor(private readonly opts: AuthCaptureXrplServerOptions) {
     this.schemeHooks = {
@@ -73,8 +75,13 @@ export class AuthCaptureXrplServerScheme implements SchemeNetworkServer {
         if (ctx.phase !== "before-handler") return;
         const extra = ctx.paymentPayload.accepted.extra as Record<string, unknown>;
         const orderId = typeof extra.orderId === "string" ? extra.orderId : undefined;
-        const order = orderId ? await this.opts.arbiter.getOrder(orderId) : undefined;
+        // One collect per order: until the arbiter records funding the order still reads "created",
+        // so a second escrow for it would otherwise also pass and get the resource a second time.
+        if (!orderId || this.inFlight.has(orderId)) return { abort: true, reason: ERRORS.order };
+        this.inFlight.set(orderId, blobOf(ctx));
+        const order = await this.opts.arbiter.getOrder(orderId);
         if (!order || order.status !== "created" || !orderMatches(order, ctx.requirements as PaymentRequirements, extra)) {
+          this.release(orderId, blobOf(ctx));
           return { abort: true, reason: ERRORS.order };
         }
       },
@@ -83,15 +90,30 @@ export class AuthCaptureXrplServerScheme implements SchemeNetworkServer {
         const orderId = String(ctx.paymentPayload.accepted.extra.orderId);
         this.collected.set(orderId, { ...(ctx.result as SettleResponse) });
         try {
-          const blob = String((ctx.paymentPayload.payload as { signedTxBlob?: unknown }).signedTxBlob);
-          const tx = decode(blob) as { Account: string; Sequence: number; TicketSequence?: number };
+          const tx = decode(blobOf(ctx)) as { Account: string; Sequence: number; TicketSequence?: number };
           const offerSequence = tx.Sequence === 0 && tx.TicketSequence ? tx.TicketSequence : tx.Sequence;
           await this.opts.arbiter.recordFunding({ orderId, owner: tx.Account, offerSequence, txHash: ctx.result.transaction });
+          // The arbiter now reports the order as funded, which refuses any later collect.
+          this.release(orderId, blobOf(ctx));
         } catch (err) {
+          // Keep the claim: the order still reads "created" at the arbiter.
           (this.opts.onFundingError ?? defaultFundingError)(err, orderId);
         }
       },
+      onSettleFailure: async (ctx) => {
+        // Fires for our own abort too, so only the request that holds the claim releases it.
+        if (ctx.phase === "before-handler") this.release(String(ctx.paymentPayload.accepted.extra.orderId), blobOf(ctx));
+      },
+      onVerifiedPaymentCanceled: async (ctx) => {
+        // The handler failed after the collect; no after-handler settle will read the stored result.
+        this.collected.delete(String(ctx.paymentPayload.accepted.extra.orderId));
+      },
     };
+  }
+
+  /** Releases an order's collect claim, only if `blob` is the request that took it. */
+  private release(orderId: string, blob: string): void {
+    if (this.inFlight.get(orderId) === blob) this.inFlight.delete(orderId);
   }
 
   async parsePrice(price: Price, _network: Network): Promise<AssetAmount> {
@@ -201,6 +223,10 @@ function paidRetryOrderId(ctx: SchemePaymentRequiredContext): string | undefined
   } catch {
     return undefined;
   }
+}
+
+function blobOf(ctx: { paymentPayload: { payload: unknown } }): string {
+  return String((ctx.paymentPayload.payload as { signedTxBlob?: unknown } | undefined)?.signedTxBlob);
 }
 
 function drops(amount: string): string {
