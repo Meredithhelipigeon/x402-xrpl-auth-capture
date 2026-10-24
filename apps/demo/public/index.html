@@ -96,7 +96,20 @@
   .token { position: absolute; z-index: 5; width: 44px; height: 44px; margin: -22px 0 0 -22px; border-radius: 50%; background: var(--coin); color: var(--coin-ink); display: grid; place-items: center; font-weight: 900; font-size: 11px; box-shadow: 0 6px 18px rgba(0,0,0,.35); pointer-events: none; }
   .token.doc { border-radius: 8px; width: 36px; height: 44px; margin: -22px 0 0 -18px; background: var(--panel-solid); color: var(--ink); border: 1px solid var(--line); font-size: 18px; }
 
-  .explain { margin: 14px 0 0; color: var(--muted); font-size: 13px; min-height: 20px; }
+  .narr { margin-top: 18px; border-radius: 14px; padding: 14px 16px; background: var(--panel-solid); border: 1px solid var(--line); min-height: 92px; }
+  .narr-step { font-size: 11px; font-weight: 800; letter-spacing: .1em; text-transform: uppercase; color: var(--accent); }
+  .narr-text { font-size: 15px; margin-top: 4px; }
+  .working::after { content: ""; display: inline-block; width: 1.2em; text-align: left; animation: dots 1.2s steps(4, end) infinite; }
+  @keyframes dots { 0% { content: ""; } 25% { content: "."; } 50% { content: ".."; } 75% { content: "..."; } }
+  .checks { list-style: none; margin: 10px 0 0; padding: 0; display: grid; gap: 6px; }
+  .checks li { display: flex; gap: 10px; align-items: center; font-size: 14px; color: var(--muted); transition: color .3s; }
+  .checks .mark { width: 22px; height: 22px; border-radius: 50%; display: grid; place-items: center; font-size: 13px; font-weight: 900; border: 2px solid var(--line); flex: none; }
+  .checks li.checking { color: var(--ink); }
+  .checks li.checking .mark { border-color: var(--accent); border-top-color: transparent; animation: spin .8s linear infinite; }
+  .checks li.ok { color: var(--ink); } .checks li.ok .mark { background: var(--pass); border-color: var(--pass); color: #fff; }
+  .checks li.bad { color: var(--fail); font-weight: 700; } .checks li.bad .mark { background: var(--fail); border-color: var(--fail); color: #fff; }
+  .checks li.skip { opacity: .5; }
+  @keyframes spin { to { transform: rotate(360deg); } }
 
   /* log */
   .log { padding: 14px; max-height: 560px; overflow: auto; }
@@ -204,7 +217,11 @@
           <div class="bal" id="b-seller">–</div><div class="delta" id="d-seller"></div>
         </div>
       </div>
-      <p class="explain" id="explain"></p>
+      <div class="narr" id="narr">
+        <div class="narr-step" id="narr-step">Ready</div>
+        <div class="narr-text" id="explain">Press a button. Each step pauses so you can follow what happens on the ledger.</div>
+        <ul class="checks" id="checks" hidden></ul>
+      </div>
     </section>
 
     <aside class="panel log">
@@ -291,7 +308,7 @@
       { left: `${a.x}px`, top: `${a.y}px`, transform: "scale(.6)", opacity: 0 },
       { left: `${mid.x}px`, top: `${mid.y}px`, transform: "scale(1.1)", opacity: 1, offset: 0.5 },
       { left: `${b.x}px`, top: `${b.y}px`, transform: "scale(.8)", opacity: 1 },
-    ], { duration: 1100, easing: "cubic-bezier(.45,.05,.3,1)" });
+    ], { duration: 1800, easing: "cubic-bezier(.45,.05,.3,1)" });
     return anim.finished.then(() => t.remove());
   }
   function flash(node, cls, ms = 1600) {
@@ -349,6 +366,27 @@
 
   /* ---------- stage ---------- */
   function caption(text, explain) { $("caption").textContent = text; if (explain !== undefined) $("explain").textContent = explain; }
+  const sleep = (ms) => (live ? new Promise((r) => setTimeout(r, ms)) : Promise.resolve());
+  function narrate(step, title, text, working = false) {
+    $("narr-step").textContent = step; $("caption").textContent = title;
+    $("explain").textContent = text; $("explain").classList.toggle("working", working);
+  }
+  const CHECKS = ["Seller's signature matches the seller's account", "It's the promised symbol (XRP)", "Price is a positive number", "Quote is fresh (under 60 s old)"];
+  function showChecks() {
+    $("checks").hidden = false;
+    $("checks").replaceChildren(...CHECKS.map((t) => { const li = el("li"); li.append(el("span", "mark", ""), el("span", null, t)); return li; }));
+  }
+  function setCheck(i, state) {
+    const li = $("checks").children[i]; if (!li) return;
+    li.className = state; li.querySelector(".mark").textContent = state === "ok" ? "✓" : state === "bad" ? "✗" : state === "skip" ? "–" : "";
+  }
+  /** Which check a FAIL reason from the arbiter's judge corresponds to. */
+  function failedCheck(reason = "") {
+    if (/symbol|JSON|terms/.test(reason)) return 1;
+    if (/price/.test(reason)) return 2;
+    if (/old|asOf|future/.test(reason)) return 3;
+    return 2;
+  }
   function setVault(amountDrops, state, sub) {
     $("v-amount").textContent = amountDrops ? xrp(amountDrops) : "0 XRP";
     $("v-state").textContent = state; $("v-sub").textContent = sub;
@@ -360,6 +398,7 @@
     requestAnimationFrame(() => s.classList.add("show"));
   }
   function resetStage() {
+    $("checks").hidden = true;
     stamp(null); $("verdict-line").textContent = ""; $("ring").hidden = true;
     for (const n of ["n-buyer", "n-vault", "n-seller", "n-arbiter"]) $(n).classList.remove("glow", "good", "bad");
   }
@@ -396,20 +435,31 @@
     const d = e.detail || {};
     if (e.type === "error") { log("⚠️", `<b>Run failed</b> (${esc(d.mode)}): ${esc(d.message)}`, e.at); return; }
     if (e.type === "run_started") {
-      if (live) { resetStage(); caption(d.mode === "cheat" ? "Buying from the cheating seller…" : "Buying from the honest seller…", "The agent asks the seller for a price quote."); flash($("n-buyer"), "glow"); pulseWire("w-sb"); }
+      if (live) {
+        resetStage();
+        narrate("Step 1 of 5 · Ask", d.mode === "cheat" ? "Buying from the cheating seller" : "Buying from the honest seller",
+          "The buyer agent calls the seller's paid API: GET /quote?symbol=XRP", true);
+        flash($("n-buyer"), "glow"); pulseWire("w-sb", 2500);
+      }
       return;
     }
     if (!e.orderId) return;
     const o = order(e.orderId);
     if (live) focusId = e.orderId;
     const focused = focusId === e.orderId;
+    const show = focused && live;
 
     switch (e.type) {
       case "payment_required": {
         o.amount = d.amount; o.deadline = d.captureDeadline; o.lock = d.captureDeadline - Math.floor((e.at || Date.now()) / 1000);
         fill(o, "quoted", `${xrp(d.amount)} · deadline ${new Date(d.captureDeadline * 1000).toLocaleTimeString()}`);
         log("🧾", `Seller answers <b>402 Payment Required</b>: ${xrp(d.amount)}, held until ${new Date(d.captureDeadline * 1000).toLocaleTimeString()}.`, e.at);
-        if (focused && live) { caption("402: pay into escrow", "The arbiter minted a fresh secret for this order. Only it can release the escrow."); flash($("n-arbiter"), "glow"); pulseWire("w-av"); }
+        if (show) {
+          narrate("Step 1 of 5 · 402 Payment Required", `The seller asks for ${xrp(d.amount)}, paid into an escrow`,
+            `The arbiter just created a fresh secret lock for this order. Only the arbiter can open it, and only before ${new Date(d.captureDeadline * 1000).toLocaleTimeString()}.`);
+          flash($("n-arbiter"), "glow", 2500); pulseWire("w-av", 2500);
+          await sleep(3000);
+        }
         break;
       }
       case "escrow_locked": {
@@ -417,9 +467,20 @@
         fill(o, "locked", txLink(e.txHash, "EscrowCreate ↗"));
         log("🔒", `Buyer's ${xrp(o.amount || d.amount)} locked in escrow. ${linkHtml(e.txHash, "EscrowCreate")}`, e.at);
         if (focused) {
-          pulseWire("w-bv"); await fly($("n-buyer"), $("n-vault"), "coin", "XRP");
+          if (show) {
+            narrate("Step 2 of 5 · Lock", "Creating the escrow on the XRP Ledger",
+              `The agent signs an EscrowCreate: ${xrp(o.amount || d.amount)} to the seller, locked by the arbiter's condition, refundable after the deadline. The facilitator submits it and waits for the ledger to validate it`, true);
+            flash($("n-buyer"), "glow", 2000);
+            await sleep(2200);
+          }
+          pulseWire("w-bv", 2000); await fly($("n-buyer"), $("n-vault"), "coin", "XRP");
           setVault(o.amount || d.amount, "Locked in escrow", "can only go to the seller, with the arbiter's secret");
-          if (live) { caption("Money locked, not paid", "The seller can see the funds are there, but can't touch them."); flash($("n-vault"), "glow"); refreshBalances(); }
+          if (show) {
+            narrate("Step 2 of 5 · Lock", "Money locked ✓, but not paid",
+              "The EscrowCreate is validated on the ledger. The seller can see the money is there, but can't touch it.");
+            flash($("n-vault"), "glow", 3000); refreshBalances();
+            await sleep(3200);
+          }
         }
         break;
       }
@@ -429,9 +490,19 @@
           o.body = d.body;
           fill(o, "delivered", d.body ? JSON.stringify(d.body) : "signed quote");
           log(d.mode === "cheat" ? "🦹" : "📦", `Seller delivers a signed quote: <code>${esc(JSON.stringify(d.body))}</code>`, e.at);
-          if (focused && live) { caption("Data delivered, signed by the seller", "The signature proves exactly what the seller sent."); pulseWire("w-sb"); fly($("n-seller"), $("n-buyer"), "doc"); }
-        } else if (e.source === "arbiter" && focused && live) {
-          caption("Arbiter is checking the data…", "The buyer forwards the bytes it received. The arbiter verifies the seller's signature, then judges."); pulseWire("w-ba"); fly($("n-buyer"), $("n-arbiter"), "doc"); flash($("n-arbiter"), "glow", 0);
+          if (show) {
+            narrate("Step 3 of 5 · Deliver", "The seller delivers the data",
+              `${JSON.stringify(d.body)}. The seller signs these exact bytes, so nobody can swap them later.`);
+            pulseWire("w-sb", 2000); await fly($("n-seller"), $("n-buyer"), "doc");
+            await sleep(2500);
+          }
+        } else if (e.source === "arbiter" && show) {
+          narrate("Step 4 of 5 · Verify", "The arbiter is checking the data",
+            "The buyer forwards exactly what it received. The arbiter runs its checks before it decides who gets the money", true);
+          pulseWire("w-ba", 2000); await fly($("n-buyer"), $("n-arbiter"), "doc");
+          flash($("n-arbiter"), "glow", 0);
+          showChecks();
+          for (let i = 0; i < CHECKS.length; i++) { setCheck(i, "checking"); await sleep(900); }
         }
         break;
       }
@@ -443,11 +514,24 @@
         if (!pass) { o.pill.textContent = "rejected · refund pending"; o.pill.className = "pill fail"; o.reason = d.reason; compare(o); }
         log(pass ? "✅" : "❌", pass ? "Arbiter: <b>PASS</b>. The data checks out." : `Arbiter: <b>FAIL</b>. ${esc(d.reason || "")}`, e.at);
         if (focused) {
+          if (show) {
+            if ($("checks").hidden) showChecks();
+            const bad = pass ? -1 : failedCheck(d.reason);
+            for (let i = 0; i < CHECKS.length; i++) {
+              setCheck(i, bad === -1 || i < bad ? "ok" : i === bad ? "bad" : "skip");
+              await sleep(i === bad ? 1200 : 600);
+            }
+          }
           stamp(d.verdict); $("verdict-line").textContent = pass ? "data verified" : d.reason || "";
           flash($("n-arbiter"), pass ? "good" : "bad", 0);
-          if (live) caption(pass ? "PASS: releasing the escrow to the seller" : "FAIL: the seller will never get this money",
-            pass ? "The arbiter submits EscrowFinish with the secret." : "The escrow stays locked until its deadline, then goes back to the buyer. Nobody can redirect it.");
           if (!pass) setVault(o.amount, "Locked · rejected", "refund unlocks at the deadline");
+          if (show) {
+            narrate("Step 4 of 5 · Verdict", pass ? "PASS: the data checks out" : `FAIL: ${d.reason}`,
+              pass ? "The arbiter will now release the escrow to the seller."
+                   : "The seller will never get this money. The escrow stays locked until its deadline (see the countdown), then it can only go back to the buyer.");
+            await sleep(3200);
+            if (!pass) narrate("Step 5 of 5 · Refund", "Waiting for the deadline", "XRPL doesn't allow an escrow to be cancelled early. After the deadline, the facilitator's watcher cancels it and the money goes back to the buyer", true);
+          }
         }
         break;
       }
@@ -457,9 +541,14 @@
         o.pill.textContent = "seller paid"; o.pill.className = "pill pass";
         log("💸", `Escrow released to the seller. ${linkHtml(e.txHash, "EscrowFinish")}`, e.at);
         if (focused) {
-          pulseWire("w-vs"); await fly($("n-vault"), $("n-seller"), "coin", "XRP");
-          setVault(0, "Escrow closed", "paid to the seller"); flash($("n-seller"), "good");
-          if (live) { caption("Seller paid, for verified data only", ""); refreshBalances(); }
+          if (show) {
+            narrate("Step 5 of 5 · Pay", "Releasing the escrow to the seller",
+              "The arbiter submits an EscrowFinish that reveals its secret. The ledger checks the secret against the lock and releases the money", true);
+            await sleep(2200);
+          }
+          pulseWire("w-vs", 2000); await fly($("n-vault"), $("n-seller"), "coin", "XRP");
+          setVault(0, "Escrow closed", "paid to the seller"); flash($("n-seller"), "good", 3000);
+          if (show) { narrate("Done", "Seller paid ✓, for verified data only", "Without a PASS from the arbiter, this money would have gone back to the buyer."); refreshBalances(); }
         }
         updateStats();
         break;
@@ -471,9 +560,14 @@
         compare(o);
         log("↩️", `Deadline passed: escrow returned to the buyer. ${linkHtml(e.txHash, "EscrowCancel")}`, e.at);
         if (focused) {
-          pulseWire("w-bv"); await fly($("n-vault"), $("n-buyer"), "coin", "XRP");
-          setVault(0, "Escrow closed", "refunded to the buyer"); flash($("n-buyer"), "good");
-          if (live) { caption("Buyer refunded: the cheat earned nothing", "The buyer only paid the 12-drop network fee."); refreshBalances(); }
+          if (show) {
+            narrate("Step 5 of 5 · Refund", "Deadline passed: refunding the buyer",
+              "The facilitator's watcher submits an EscrowCancel. Anyone may send it, but the ledger only lets the money go back to the buyer", true);
+            await sleep(2200);
+          }
+          pulseWire("w-bv", 2000); await fly($("n-vault"), $("n-buyer"), "coin", "XRP");
+          setVault(0, "Escrow closed", "refunded to the buyer"); flash($("n-buyer"), "good", 3000);
+          if (show) { narrate("Done", "Buyer refunded ✓: the cheat earned nothing", "The agent's only cost was the 12-drop network fee. Under pay-first x402 it would have lost the full price."); refreshBalances(); }
         }
         updateStats();
         break;
