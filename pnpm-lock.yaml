@@ -8,12 +8,21 @@ importers:
 
   .:
     devDependencies:
+      '@demo/common':
+        specifier: workspace:*
+        version: link:apps/common
       '@eslint/js':
         specifier: ^10.0.1
         version: 10.0.1(eslint@10.13.0)
       '@types/node':
         specifier: ^22.19.0
         version: 22.20.5
+      '@x402/core':
+        specifier: 2.28.0
+        version: 2.28.0
+      '@x402/fetch':
+        specifier: 2.28.0
+        version: 2.28.0
       '@xrpljapan/x402-xrpl':
         specifier: ^0.1.0
         version: 0.1.0(@x402/core@2.28.0)
@@ -69,9 +78,18 @@ importers:
 
   apps/common:
     dependencies:
+      '@x402/core':
+        specifier: 2.28.0
+        version: 2.28.0
+      '@x402/fetch':
+        specifier: 2.28.0
+        version: 2.28.0
       dotenv:
         specifier: ^18.0.9
         version: 18.0.9
+      x402-auth-capture-xrpl:
+        specifier: workspace:*
+        version: link:../../packages/auth-capture-xrpl
       xrpl:
         specifier: ^5.3.0
         version: 5.3.0
@@ -836,6 +854,9 @@ packages:
 
   '@x402/extensions@2.28.0':
     resolution: {integrity: sha512-M3SVxO8DJnx7gpok/ODQp803jr21s1XrCMholNw0hSgOVvSPRksfTZ+CUNfJwteNaHmaAxGjPelXWBhTCMD9oQ==}
+
+  '@x402/fetch@2.28.0':
+    resolution: {integrity: sha512-kF5IjZIz/izg2TD/Zav+SVj0jtC0zBDfE7WcKCnMZWIsZcLCyL2GgvwXCn7CCSsNjpQ/z3Rz4OqTCA4AaeKySQ==}
 
   '@xrplf/isomorphic@1.0.2':
     resolution: {integrity: sha512-ncZUdMXr6VlSXtdoiDi0jTH+gBrgGxwVeEidhoegII3PmyErbQsyj6e+j7acmR4LW/lvBkPkzb9QzRfJH0n3rA==}
@@ -2427,6 +2448,10 @@ snapshots:
       - ethers
       - typescript
       - utf-8-validate
+
+  '@x402/fetch@2.28.0':
+    dependencies:
+      '@x402/core': 2.28.0
 
   '@xrplf/isomorphic@1.0.2':
     dependencies:

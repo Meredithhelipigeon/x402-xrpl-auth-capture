@@ -10,7 +10,10 @@
   },
   "dependencies": {
     "dotenv": "^18.0.9",
-    "xrpl": "^5.3.0"
+    "xrpl": "^5.3.0",
+    "@x402/core": "2.28.0",
+    "@x402/fetch": "2.28.0",
+    "x402-auth-capture-xrpl": "workspace:*"
   },
   "devDependencies": {
     "@types/node": "^22.19.0",

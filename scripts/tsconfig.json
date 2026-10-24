@@ -2,7 +2,13 @@
   "extends": "../tsconfig.base.json",
   "compilerOptions": {
     "noEmit": true,
-    "rootDir": ".."
+    "rootDir": "..",
+    "customConditions": [
+      "source"
+    ]
   },
-  "include": ["./**/*.ts", "../packages/auth-capture-xrpl/src/**/*.ts"]
+  "include": [
+    "./**/*.ts",
+    "../packages/auth-capture-xrpl/src/**/*.ts"
+  ]
 }
