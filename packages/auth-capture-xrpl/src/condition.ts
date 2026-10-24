@@ -36,6 +36,14 @@ export function fulfillmentFromPreimage(preimage: Uint8Array): string {
   return FULFILLMENT_PREFIX + Buffer.from(preimage).toString("hex").toUpperCase();
 }
 
+/** True when `fulfillment` is a well-formed PREIMAGE-SHA-256 fulfillment whose preimage hashes to `condition`. */
+export function fulfillmentMatchesCondition(fulfillment: string, condition: string): boolean {
+  const upper = fulfillment.toUpperCase();
+  if (!/^A0228020[0-9A-F]{64}$/.test(upper) || !isWellFormedCondition(condition)) return false;
+  const preimage = new Uint8Array(Buffer.from(upper.slice(FULFILLMENT_PREFIX.length), "hex"));
+  return conditionFromPreimage(preimage) === condition.toUpperCase();
+}
+
 /** True for a 78-hex-character PREIMAGE-SHA-256 condition with a 32-byte cost. Case-insensitive. */
 export function isWellFormedCondition(condition: string): boolean {
   return CONDITION_PATTERN.test(condition.toUpperCase());

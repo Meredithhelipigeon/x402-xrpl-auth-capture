@@ -13,5 +13,17 @@ export {
   newPreimage,
   conditionFromPreimage,
   fulfillmentFromPreimage,
+  fulfillmentMatchesCondition,
   isWellFormedCondition,
 } from "./condition.js";
+export {
+  DELIVERY_SIGNATURE_HEADER,
+  DELIVERY_PUBLIC_KEY_HEADER,
+  type DeliveryKeys,
+  type SignedDelivery,
+  type DeliveryCheck,
+  deliveryHash,
+  signDelivery,
+  verifyDelivery,
+} from "./delivery.js";
+export * from "./lifecycle/index.js";

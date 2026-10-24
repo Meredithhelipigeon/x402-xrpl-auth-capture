@@ -41,6 +41,9 @@ importers:
       '@xrpljapan/x402-xrpl':
         specifier: ^0.1.0
         version: 0.1.0(@x402/core@2.28.0)
+      ripple-keypairs:
+        specifier: ^3.1.0
+        version: 3.1.0
       xrpl:
         specifier: ^5.3.0
         version: 5.3.0
