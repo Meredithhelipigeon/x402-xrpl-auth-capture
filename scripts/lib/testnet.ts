@@ -1,11 +1,17 @@
 import { existsSync, readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { config } from "dotenv";
+import { HttpsProxyAgent } from "https-proxy-agent";
 import { Client, Wallet } from "xrpl";
 
 export const REPO_ROOT = resolve(import.meta.dirname, "../..");
 export const ENV_PATH = resolve(REPO_ROOT, ".env");
-export const DEFAULT_WS_URL = "wss://s.altnet.rippletest.net:51233";
+/**
+ * Public XRPL testnet node on port 443. The usual s.altnet.rippletest.net:51233 works too, but some
+ * proxied environments (including Claude's cloud workspace) only allow standard ports. Override with XRPL_WS_URL.
+ */
+export const DEFAULT_WS_URL = "wss://testnet.xrpl-labs.com";
+export const FAUCET_HOST = "faucet.altnet.rippletest.net";
 export const EXPLORER = "https://testnet.xrpl.org";
 
 export const ROLES = ["buyer", "seller", "arbiter", "facilitator"] as const;
@@ -31,7 +37,9 @@ export function wsUrl(): string {
 }
 
 export async function connect(): Promise<Client> {
-  const client = new Client(wsUrl(), { connectionTimeout: 15_000 });
+  // Behind an HTTPS proxy (e.g. a sandboxed workspace), WebSockets need an explicit agent. No-op on a normal laptop.
+  const proxy = process.env.HTTPS_PROXY || process.env.https_proxy;
+  const client = new Client(wsUrl(), { connectionTimeout: 15_000, ...(proxy ? { agent: new HttpsProxyAgent(proxy) } : {}) });
   await client.connect();
   return client;
 }
