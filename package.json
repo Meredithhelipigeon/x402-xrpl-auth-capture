@@ -17,7 +17,9 @@
     "format": "prettier --write \"**/*.{ts,json,md,yml}\"",
     "testnet:setup": "NODE_USE_ENV_PROXY=1 tsx scripts/setup-testnet.ts",
     "testnet:raw-escrow": "NODE_USE_ENV_PROXY=1 tsx scripts/raw-escrow.ts",
-    "testnet:reclaim-expired": "NODE_USE_ENV_PROXY=1 tsx scripts/reclaim-expired.ts"
+    "testnet:reclaim-expired": "NODE_USE_ENV_PROXY=1 tsx scripts/reclaim-expired.ts",
+    "facilitator": "pnpm --filter @demo/facilitator start",
+    "testnet:settle-escrow": "NODE_USE_ENV_PROXY=1 tsx --conditions=source scripts/settle-escrow.ts"
   },
   "pnpm": {
     "onlyBuiltDependencies": [
@@ -34,6 +36,7 @@
     "tsx": "^4.23.15",
     "typescript": "^5.9.3",
     "typescript-eslint": "^8.72.0",
-    "xrpl": "^5.3.0"
+    "xrpl": "^5.3.0",
+    "@xrpljapan/x402-xrpl": "^0.1.0"
   }
 }
