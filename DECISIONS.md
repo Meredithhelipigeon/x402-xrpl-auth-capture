@@ -4,7 +4,6 @@ Every non-obvious choice, newest first. Format: date, decision, reason, who deci
 
 ## 2026-10-24
 
-- **PR descriptions follow the `raise-pr` skill.** The skill is kept as Meredith wrote it in `.claude/skills/raise-pr/`; the copy GitHub fills in, `.github/pull_request_template.md`, defines "the contract" for this repo as the x402 wire format (AGENTS.md section 3) and the Arbiter API that Misa implements (sections 5.3 and 7.2), since there is no `packages/core` here. Titles use the milestone as the work-item ID, e.g. `[M3]`. Who: Meredith (skill); Claude (default for the contract wording).
 - **Delivery signature travels with its public key.** The seller returns `X-DELIVERY-SIGNATURE` and `X-DELIVERY-PUBLIC-KEY`; the arbiter checks that the key derives to `payTo`, then verifies the signature over sha256(orderId + "\n" + body). An address alone cannot verify a signature. Limitation: the seller must sign with its master key (a regular key derives a different address). Who: Claude (default); this is our own header, not x402 wire format.
 - **Hold mechanism stays native XRPL Escrow (not payment channels).** Escrow's ledger mechanics are simpler to prove in M1, and the demo story (lock, verify, release or reclaim) is the same either way. Payment channels would raise `auth-capture` coverage to partial capture and capture-and-void (the arbiter can hold the channel's claim key), and are the v1 path. Who: Meredith (go-ahead in chat on Claude's recommendation).
 - **Present the binding as the "full-capture-only profile" of `auth-capture`, not a new scheme.** It meets all 8 binding requirements and all core properties; void, partial capture and refund are declared unsupported because XRPL Escrow cannot do them. Merged bindings commonly declare unsupported features; follow the "Limitations and Out of Scope" format of `scheme_upto_xrpl.md`. Who: Meredith (in chat, after review).
@@ -13,6 +12,7 @@ Every non-obvious choice, newest first. Format: date, decision, reason, who deci
 - **TypeScript 5.9, not 7.** `typescript-eslint` supports TypeScript below 6.1, and tsup's declaration build uses the TypeScript JS API. Who: Claude (default).
 - **Unix-seconds guard in `toRippleTime`.** Values of 10^10 or more are rejected as probable milliseconds, because xrpl.js's own helper takes milliseconds and mixing them up silently sets deadlines tens of thousands of years out. Who: Claude (default).
 - **License copyright line reads "The x402-xrpl-auth-capture authors".** Neutral holder while the project's owning entity is undecided. Who: Claude (default); Meredith may change it.
+- **PR descriptions follow the `raise-pr` skill.** The skill is kept as Meredith wrote it in `.claude/skills/raise-pr/`; the copy GitHub fills in, `.github/pull_request_template.md`, defines "the contract" for this repo as the x402 wire format (AGENTS.md section 3) and the Arbiter API that Misa implements (sections 5.3 and 7.2), since there is no `packages/core` here. Titles use the milestone as the work-item ID, e.g. `[M3]`. Who: Meredith (skill); Claude (default for the contract wording).
 
 ## Later
 
