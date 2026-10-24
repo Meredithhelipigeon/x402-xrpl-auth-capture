@@ -4,23 +4,81 @@ Verify-then-pay for AI agents on the XRP Ledger. The buyer's payment is locked i
 
 This repo is an XRPL network binding of the x402 [`auth-capture`](https://github.com/x402-foundation/x402/blob/main/specs/schemes/auth-capture/scheme_auth_capture.md) scheme, plus demo apps. It is our entry for the AI & Fintech XRPL Hackathon (New York, Oct 24-25, 2026), Agentic Finance track.
 
-**Status:** M0 (scaffold). See [`AGENTS.md`](./AGENTS.md) for the build brief, milestones and locked design, and [`DECISIONS.md`](./DECISIONS.md) for decisions.
+- **Spec:** [`specs/scheme_auth_capture_xrpl.md`](./specs/scheme_auth_capture_xrpl.md). It answers the scheme's 8 binding requirements.
+- **Design and milestones:** [`AGENTS.md`](./AGENTS.md). **Decisions:** [`DECISIONS.md`](./DECISIONS.md). **Pitch:** [`docs/pitch.md`](./docs/pitch.md).
 
-## Develop
+## How it works
 
-Requires Node 22+ and pnpm 10.
+```mermaid
+sequenceDiagram
+  participant B as Buyer agent
+  participant S as Seller API
+  participant F as Facilitator
+  participant A as Arbiter
+  participant L as XRPL
+  B->>S: GET /quote
+  S->>A: create order (fresh secret)
+  S-->>B: 402: pay into escrow, condition, deadline
+  B->>S: retry with signed EscrowCreate
+  S->>F: settle
+  F->>L: EscrowCreate (money locked)
+  S-->>B: quote, signed by the seller
+  B->>A: here is what I got
+  alt PASS
+    A->>L: EscrowFinish (seller paid)
+  else FAIL or no answer
+    F->>L: EscrowCancel after the deadline (buyer refunded)
+  end
+  A-->>B: signed receipt
+```
+
+Nothing is deployed on-ledger. The guarantees come from XRPL consensus:
+- The escrow can pay only `payTo`, and only with the arbiter's secret, before the deadline.
+- After the deadline, anyone can return it to the buyer.
+
+The facilitator holds no keys and no funds.
+
+## Packages and apps
+
+| Path | What it is |
+| --- | --- |
+| `packages/auth-capture-xrpl` | The mechanism package for `@x402/core`: client, server and facilitator schemes, the Arbiter interface and HTTP client, signed receipts and deliveries, and lifecycle helpers including the `ReclaimWatcher`. |
+| `apps/facilitator` | `/supported`, `/verify`, `/settle`, plus the watcher that refunds expired escrows. |
+| `apps/arbiter-stub` | The Arbiter HTTP API. It judges quotes and finishes on PASS. Misa replaces it by implementing the same API. |
+| `apps/seller` | A paid `GET /quote`; `?mode=cheat` returns a bad quote. |
+| `apps/buyer-agent` | Claude with one tool, `buy_quote`. |
+| `apps/demo` | A live timeline with explorer links and honest/cheat buttons. |
+
+## Run it
+
+Requires Node 22+ and pnpm 10. Testnet only.
 
 ```bash
 pnpm install
-pnpm check   # lint, typecheck, build, test
+pnpm check                  # lint, typecheck, build, test
+pnpm testnet:setup          # fund buyer, seller, arbiter, facilitator wallets; writes .env
 ```
 
-Testnet only. Wallet seeds live in `.env` (gitignored); never commit or print them.
+Start the four services in separate terminals, then open http://localhost:4050:
 
 ```bash
-pnpm testnet:setup        # fund buyer, seller, arbiter and watcher wallets; writes .env
-pnpm testnet:raw-escrow   # M1: prove create/finish/cancel and the three failure cases (~2 min)
+pnpm demo
+pnpm facilitator
+pnpm arbiter
+pnpm seller
 ```
+
+Then run any of these:
+
+```bash
+pnpm testnet:e2e all        # honest + cheat end to end, balances checked to the drop (~4 min)
+pnpm agent honest           # Claude buys a quote (needs ANTHROPIC_API_KEY)
+pnpm agent cheat
+pnpm testnet:raw-escrow     # M1: ledger-only proof of create/finish/cancel
+pnpm testnet:settle-escrow  # M3/M4: a client-signed escrow through the facilitator
+```
+
+Wallet seeds live in `.env` (gitignored). Never commit or print them.
 
 ## License
 
