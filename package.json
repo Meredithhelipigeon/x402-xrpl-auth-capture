@@ -18,7 +18,9 @@
     "testnet:setup": "tsx scripts/setup-testnet.ts",
     "testnet:raw-escrow": "tsx scripts/raw-escrow.ts",
     "facilitator": "pnpm --filter @demo/facilitator start",
-    "testnet:settle-escrow": "tsx --conditions=source scripts/settle-escrow.ts"
+    "testnet:settle-escrow": "tsx --conditions=source scripts/settle-escrow.ts",
+    "arbiter": "pnpm --filter @demo/arbiter-stub start",
+    "seller": "pnpm --filter @demo/seller start"
   },
   "pnpm": {
     "onlyBuiltDependencies": [
