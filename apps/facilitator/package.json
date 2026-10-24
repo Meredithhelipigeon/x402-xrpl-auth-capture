@@ -1,0 +1,22 @@
+{
+  "name": "@demo/facilitator",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "start": "tsx --conditions=source src/index.ts",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@demo/common": "workspace:*",
+    "@x402/core": "2.28.0",
+    "express": "^5.3.0",
+    "x402-auth-capture-xrpl": "workspace:*",
+    "xrpl": "^5.3.0"
+  },
+  "devDependencies": {
+    "@types/express": "^5.0.0",
+    "@types/node": "^22.19.0",
+    "tsx": "^4.23.15",
+    "typescript": "^5.9.3"
+  }
+}

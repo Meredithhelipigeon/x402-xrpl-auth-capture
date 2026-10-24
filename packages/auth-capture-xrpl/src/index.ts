@@ -19,3 +19,4 @@ export {
   verifyDelivery,
 } from "./delivery.js";
 export * from "./lifecycle/index.js";
+export * from "./facilitator/index.js";
