@@ -120,6 +120,31 @@ importers:
         specifier: ^5.9.3
         version: 5.9.3
 
+  apps/demo:
+    dependencies:
+      '@demo/common':
+        specifier: workspace:*
+        version: link:../common
+      express:
+        specifier: ^5.3.0
+        version: 5.3.0
+      xrpl:
+        specifier: ^5.3.0
+        version: 5.3.0
+    devDependencies:
+      '@types/express':
+        specifier: ^5.0.0
+        version: 5.0.6
+      '@types/node':
+        specifier: ^22.19.0
+        version: 22.20.5
+      tsx:
+        specifier: ^4.23.15
+        version: 4.23.15
+      typescript:
+        specifier: ^5.9.3
+        version: 5.9.3
+
   apps/facilitator:
     dependencies:
       '@demo/common':

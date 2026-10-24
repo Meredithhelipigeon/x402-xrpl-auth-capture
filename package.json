@@ -22,7 +22,8 @@
     "arbiter": "pnpm --filter @demo/arbiter-stub start",
     "seller": "pnpm --filter @demo/seller start",
     "testnet:e2e": "tsx --conditions=source scripts/e2e.ts",
-    "agent": "pnpm --filter @demo/buyer-agent start"
+    "agent": "pnpm --filter @demo/buyer-agent start",
+    "demo": "pnpm --filter @demo/demo start"
   },
   "pnpm": {
     "onlyBuiltDependencies": [
