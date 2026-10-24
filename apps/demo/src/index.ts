@@ -55,9 +55,10 @@ app.get("/balances", async (_req, res) => {
 app.post("/run/:mode", (req, res) => {
   const mode = req.params.mode === "cheat" ? "cheat" : "honest";
   running++;
+  publish({ type: "run_started", source: "buyer", detail: { mode, queued: running } });
   queue = queue
     .then(() => buyQuote({ symbol: "XRP", mode }))
-    .then((r) => publish({ type: "verdict", source: "buyer", orderId: r.orderId, detail: { receiptChecked: r.receiptValid, mode } }))
+    .then((r) => publish({ type: "receipt", source: "buyer", orderId: r.orderId, detail: { receiptChecked: r.receiptValid, mode, verdict: r.receipt?.verdict } }))
     .catch((err) => publish({ type: "error", source: "buyer", detail: { mode, message: err instanceof Error ? err.message : String(err) } }))
     .finally(() => running--);
   res.status(202).json({ queued: running });

@@ -2,12 +2,14 @@ import { URLS } from "./env.js";
 
 /** One step on the demo timeline (AGENTS.md section 7.5). */
 export type DemoEventType =
+  | "run_started"
   | "payment_required"
   | "escrow_locked"
   | "delivered"
   | "verdict"
   | "escrow_finished"
   | "escrow_reclaimed"
+  | "receipt"
   | "error";
 
 export interface DemoEvent {

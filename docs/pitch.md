@@ -6,6 +6,16 @@ Working notes for the Agentic Finance track demo. Not final copy.
 
 An AI agent that pays per request with x402 today pays first and hopes. If the data is wrong, stale or garbage, the money is already gone, and an agent can't dispute a charge.
 
+## The pain point, concretely
+
+x402's live scheme on XRPL is `exact`. It settles the buyer's `Payment` as soon as the seller's handler returns a success, before the buyer can look at what it got. Three things go wrong for an agent:
+
+1. **It pays for bad data.** On our testnet run, the cheating seller answered a paid XRP quote request with `{"symbol":"XRP","price":-1,"asOf":"2019-01-01T00:00:00Z"}`. That is a 200 response, so under `exact` it settles: the agent is down 1.000012 XRP with nothing usable, permanently.
+2. **x402 checks the payment, not the data.** The facilitator verifies the signature and the amount. Nothing in the protocol looks at what was delivered.
+3. **It has no recourse.** `exact` has no refund operation, an agent can't file a chargeback, and there's no human in the loop to dispute it.
+
+Same request with `auth-capture` on XRPL: the arbiter returned FAIL ("price -1 is not a positive number"), the escrow was never released, and after the deadline it was cancelled back to the agent. The agent lost 12 drops (0.000012 XRP), the network fee, and the seller got nothing. The demo page shows this side by side, with the EscrowCancel explorer link as proof.
+
 ## What we built
 
 Verify-then-pay for x402 on the XRP Ledger:
