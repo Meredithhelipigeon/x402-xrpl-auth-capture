@@ -21,7 +21,8 @@
     "testnet:settle-escrow": "tsx --conditions=source scripts/settle-escrow.ts",
     "arbiter": "pnpm --filter @demo/arbiter-stub start",
     "seller": "pnpm --filter @demo/seller start",
-    "testnet:e2e": "tsx --conditions=source scripts/e2e.ts"
+    "testnet:e2e": "tsx --conditions=source scripts/e2e.ts",
+    "agent": "pnpm --filter @demo/buyer-agent start"
   },
   "pnpm": {
     "onlyBuiltDependencies": [
