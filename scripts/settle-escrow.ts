@@ -1,19 +1,24 @@
 /**
- * M3 testnet proof: a real EscrowCreate settles through the running facilitator app.
+ * M3/M4 testnet proof: the client scheme's EscrowCreate settles through the running facilitator app.
  *
  *   pnpm facilitator          # in another terminal
  *   pnpm testnet:settle-escrow
  *
- * Builds and signs the section 3.2 EscrowCreate by hand (the client scheme is M4), then:
+ * Signs the section 3.2 EscrowCreate with AuthCaptureXrplClientScheme, then:
  *   1. POST /verify                     => isValid
  *   2. three concurrent POST /settle    => one success, two duplicate_settlement; escrow held
  *   3. POST /settle again afterwards    => refused (sequence already consumed)
  *   4. wait past the deadline           => the facilitator's watcher reclaims it to the buyer
  */
-import { ledgerBufferFromTimeout } from "@xrpljapan/x402-xrpl";
-import type { EscrowCreate } from "xrpl";
-import { conditionFromPreimage, getEscrowState, newPreimage, toRippleTime } from "../packages/auth-capture-xrpl/src/index.js";
-import { connect, loadWallets, sleep, txLink } from "./lib/testnet.js";
+import { decode } from "xrpl";
+import {
+  AuthCaptureXrplClientScheme,
+  XrplWalletSigner,
+  conditionFromPreimage,
+  getEscrowState,
+  newPreimage,
+} from "../packages/auth-capture-xrpl/src/index.js";
+import { connect, loadWallets, sleep, txLink, wsUrl } from "./lib/testnet.js";
 
 const FACILITATOR_URL = process.env.FACILITATOR_URL ?? "http://localhost:4020";
 const LOCK_SECONDS = 60;
@@ -40,7 +45,7 @@ async function main(): Promise<void> {
     const deadline = Math.floor(Date.now() / 1000) + LOCK_SECONDS;
     const requirements = {
       scheme: "auth-capture",
-      network: "xrpl:1",
+      network: "xrpl:1" as const,
       amount: AMOUNT,
       asset: "XRP",
       payTo: w.seller.classicAddress,
@@ -57,17 +62,13 @@ async function main(): Promise<void> {
         captureDeadline: deadline,
       },
     };
-    const tx: EscrowCreate = await client.autofill({
-      TransactionType: "EscrowCreate",
-      Account: w.buyer.classicAddress,
-      Destination: w.seller.classicAddress,
-      Amount: AMOUNT,
-      Condition: requirements.extra.condition,
-      CancelAfter: toRippleTime(deadline),
-      Flags: 0,
+    const buyer = new AuthCaptureXrplClientScheme(new XrplWalletSigner(w.buyer), {
+      trustedArbiters: [w.arbiter.classicAddress],
+      rpcConfig: { rpcUrl: wsUrl() },
     });
-    tx.LastLedgerSequence = (await client.getLedgerIndex()) + ledgerBufferFromTimeout(requirements.maxTimeoutSeconds);
-    const { tx_blob } = w.buyer.sign(tx);
+    const { payload } = await buyer.createPaymentPayload(2, requirements);
+    const tx_blob = String(payload.signedTxBlob);
+    const tx = decode(tx_blob) as { Sequence: number };
     const paymentPayload = { x402Version: 2, accepted: requirements, payload: { signedTxBlob: tx_blob } };
 
     const verified = await post("/verify", { paymentPayload, paymentRequirements: requirements });
@@ -79,7 +80,7 @@ async function main(): Promise<void> {
     const dupes = results.filter((r) => r.errorReason === "duplicate_settlement").length;
     check("2. one of three concurrent /settle calls submits it", settled.success === true && dupes === 2, results.map((r) => r.success || r.errorReason));
     if (settled.success) console.log(`      ${txLink(String(settled.transaction))}`);
-    const state = await getEscrowState(client, { owner: w.buyer.classicAddress, offerSequence: tx.Sequence! });
+    const state = await getEscrowState(client, { owner: w.buyer.classicAddress, offerSequence: tx.Sequence });
     check("2. escrow is held on ledger", state === "held", state);
 
     const again = await post("/settle", body);
@@ -90,7 +91,7 @@ async function main(): Promise<void> {
     let closed = false;
     while (Date.now() < until && !closed) {
       await sleep(5_000);
-      closed = (await getEscrowState(client, { owner: w.buyer.classicAddress, offerSequence: tx.Sequence! })) === "closed";
+      closed = (await getEscrowState(client, { owner: w.buyer.classicAddress, offerSequence: tx.Sequence })) === "closed";
     }
     check("4. the facilitator's watcher reclaimed the escrow", closed, closed ? "closed" : "still held");
   } finally {
