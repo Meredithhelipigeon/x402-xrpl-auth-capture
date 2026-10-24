@@ -381,7 +381,8 @@ Mainnet; IOU/RLUSD; `void`, partial capture, `charge`, `refund`; fee splitting; 
 
 - Keep the repo private. No secrets in git (`.env*` and `vendor/` gitignored).
 - Testnet only unless Meredith says otherwise in chat.
-- Small commits with clear messages; keep `main` green; run `pnpm test` before every push.
+- Every change lands through a pull request: work on a branch, open a PR against `main`, and never push to `main` directly. Meredith reviews and merges.
+- Small commits with clear messages; keep `main` green; run `pnpm check` before every push.
 - Record every non-obvious choice in `DECISIONS.md` (date, choice, reason, who decided).
 - When this file and an x402 spec disagree, the spec wins for wire-level behavior; flag it.
 - When stuck on an `@x402/core` hook's exact behavior, read its source in `node_modules/@x402/core/dist` rather than guessing, and write down what you found.
