@@ -19,7 +19,9 @@
     "testnet:raw-escrow": "NODE_USE_ENV_PROXY=1 tsx scripts/raw-escrow.ts",
     "testnet:reclaim-expired": "NODE_USE_ENV_PROXY=1 tsx scripts/reclaim-expired.ts",
     "facilitator": "pnpm --filter @demo/facilitator start",
-    "testnet:settle-escrow": "NODE_USE_ENV_PROXY=1 tsx --conditions=source scripts/settle-escrow.ts"
+    "testnet:settle-escrow": "NODE_USE_ENV_PROXY=1 tsx --conditions=source scripts/settle-escrow.ts",
+    "arbiter": "pnpm --filter @demo/arbiter-stub start",
+    "seller": "pnpm --filter @demo/seller start"
   },
   "pnpm": {
     "onlyBuiltDependencies": [
