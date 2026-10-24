@@ -1,0 +1,17 @@
+node_modules/
+dist/
+coverage/
+*.log
+*.tsbuildinfo
+.DS_Store
+
+# Secrets: wallet seeds live only here, never in git
+.env
+.env.*
+!.env.example
+
+# Spec checkouts for reading only
+vendor/
+
+# Local state written by the demo apps (orders, receipts)
+.data/
