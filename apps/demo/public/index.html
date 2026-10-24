@@ -1,0 +1,184 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Verify-then-pay on XRPL</title>
+<style>
+  :root {
+    --bg: #f7f7f5; --panel: #ffffff; --ink: #1c1c1a; --muted: #6b6b66; --line: #e4e4df;
+    --pass: #1f7a4d; --pass-bg: #e6f4ec; --fail: #b3261e; --fail-bg: #fbe9e7;
+    --wait: #8a6d00; --wait-bg: #fff6d6; --accent: #2f5bd3;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #141413; --panel: #1e1e1c; --ink: #ecebe6; --muted: #9b9a93; --line: #2f2f2c;
+      --pass: #6fd19d; --pass-bg: #173326; --fail: #ff8a80; --fail-bg: #3a1c1a;
+      --wait: #e8c547; --wait-bg: #332b0f; --accent: #8fb0ff;
+    }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--ink); font: 15px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif; }
+  main { max-width: 980px; margin: 0 auto; padding: 32px 16px 64px; }
+  h1 { font-size: 26px; margin: 0 0 4px; letter-spacing: -0.01em; }
+  .sub { color: var(--muted); margin: 0 0 24px; }
+  .bar { display: flex; flex-wrap: wrap; gap: 12px; align-items: stretch; margin-bottom: 24px; }
+  button { font: inherit; font-weight: 600; border: 1px solid var(--line); border-radius: 10px; padding: 12px 18px; cursor: pointer; background: var(--panel); color: var(--ink); }
+  button.honest { border-color: var(--pass); color: var(--pass); }
+  button.cheat { border-color: var(--fail); color: var(--fail); }
+  button:hover { filter: brightness(0.97); }
+  .balances { margin-left: auto; display: flex; gap: 12px; }
+  .bal { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 8px 14px; min-width: 150px; }
+  .bal .k { color: var(--muted); font-size: 12px; text-transform: uppercase; letter-spacing: 0.06em; }
+  .bal .v { font-size: 20px; font-variant-numeric: tabular-nums; font-weight: 600; }
+  .bal .d { font-size: 12px; font-variant-numeric: tabular-nums; }
+  .orders { display: grid; gap: 14px; }
+  .order { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 16px 18px; }
+  .order header { display: flex; justify-content: space-between; gap: 12px; align-items: baseline; margin-bottom: 12px; flex-wrap: wrap; }
+  .order code { font-size: 13px; color: var(--muted); }
+  .pill { font-size: 12px; font-weight: 700; padding: 3px 10px; border-radius: 999px; background: var(--wait-bg); color: var(--wait); }
+  .pill.pass { background: var(--pass-bg); color: var(--pass); }
+  .pill.fail { background: var(--fail-bg); color: var(--fail); }
+  ol.steps { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(5, 1fr); gap: 8px; }
+  ol.steps li { border-top: 3px solid var(--line); padding-top: 8px; color: var(--muted); font-size: 13px; min-width: 0; }
+  ol.steps li.done { border-color: var(--accent); color: var(--ink); }
+  ol.steps li.done.pass { border-color: var(--pass); }
+  ol.steps li.done.fail { border-color: var(--fail); }
+  ol.steps .t { font-weight: 600; display: block; }
+  ol.steps .x { overflow-wrap: anywhere; }
+  a { color: var(--accent); }
+  .empty { color: var(--muted); border: 1px dashed var(--line); border-radius: 12px; padding: 28px; text-align: center; }
+  .err { color: var(--fail); font-size: 13px; }
+  @media (max-width: 640px) {
+    ol.steps { grid-template-columns: 1fr; }
+    .balances { margin-left: 0; width: 100%; }
+    .bal { flex: 1; min-width: 0; }
+  }
+</style>
+</head>
+<body>
+<main>
+  <h1>Verify-then-pay for AI agents on XRPL</h1>
+  <p class="sub">The buyer's XRP is locked in a native escrow. An independent arbiter checks the data and releases the money only if it passes. Otherwise the escrow refunds after its deadline.</p>
+  <div class="bar">
+    <button class="honest" data-mode="honest">Buy from an honest seller</button>
+    <button class="cheat" data-mode="cheat">Buy from a cheating seller</button>
+    <div class="balances">
+      <div class="bal"><div class="k">Buyer</div><div class="v" id="b-buyer">–</div><div class="d" id="d-buyer"></div></div>
+      <div class="bal"><div class="k">Seller</div><div class="v" id="b-seller">–</div><div class="d" id="d-seller"></div></div>
+    </div>
+  </div>
+  <div id="errors"></div>
+  <div class="orders" id="orders"><div class="empty" id="empty">Press a button to start a purchase. Each one appears here as it happens on the XRPL testnet.</div></div>
+</main>
+<script>
+  const STEPS = [
+    ["payment_required", "402 issued"],
+    ["escrow_locked", "Escrow locked"],
+    ["delivered", "Data delivered"],
+    ["verdict", "Arbiter verdict"],
+    ["closed", "Settled"],
+  ];
+  let explorer = "https://testnet.xrpl.org";
+  const orders = new Map();
+  const startBalances = {};
+
+  const el = (tag, cls, text) => { const e = document.createElement(tag); if (cls) e.className = cls; if (text) e.textContent = text; return e; };
+  const link = (hash, label) => { const a = el("a", null, label); a.href = `${explorer}/transactions/${hash}`; a.target = "_blank"; a.rel = "noopener"; return a; };
+
+  function orderCard(id) {
+    if (orders.has(id)) return orders.get(id);
+    document.getElementById("empty")?.remove();
+    const card = el("section", "order");
+    const head = el("header");
+    const title = el("div");
+    title.append(el("strong", null, "Order "), el("code", null, id));
+    const pill = el("span", "pill", "in progress");
+    head.append(title, pill);
+    const steps = el("ol", "steps");
+    const cells = {};
+    for (const [key, label] of STEPS) {
+      const li = el("li");
+      li.append(el("span", "t", label), el("span", "x", "…"));
+      steps.append(li);
+      cells[key] = li;
+    }
+    card.append(head, steps);
+    document.getElementById("orders").prepend(card);
+    const o = { card, pill, cells, verdict: null };
+    orders.set(id, o);
+    return o;
+  }
+
+  function fill(o, key, content, tone) {
+    const li = o.cells[key];
+    li.classList.add("done");
+    if (tone) li.classList.add(tone);
+    const x = li.querySelector(".x");
+    x.replaceChildren(...(Array.isArray(content) ? content : [content]));
+  }
+
+  function onEvent(e) {
+    if (e.type === "error") {
+      const p = el("p", "err", `Run failed (${e.detail?.mode ?? "?"}): ${e.detail?.message ?? "unknown error"}`);
+      document.getElementById("errors").prepend(p);
+      return;
+    }
+    if (!e.orderId) return;
+    const o = orderCard(e.orderId);
+    const d = e.detail ?? {};
+    switch (e.type) {
+      case "payment_required":
+        fill(o, "payment_required", `${Number(d.amount) / 1e6} XRP, deadline ${new Date(d.captureDeadline * 1000).toLocaleTimeString()}`);
+        break;
+      case "escrow_locked":
+        fill(o, "escrow_locked", e.txHash ? link(e.txHash, "EscrowCreate ↗") : "locked");
+        break;
+      case "delivered":
+        if (e.source === "seller") fill(o, "delivered", d.body ? JSON.stringify(d.body) : "signed quote");
+        break;
+      case "verdict":
+        if (e.source !== "arbiter" || !d.verdict) break;
+        o.verdict = d.verdict;
+        fill(o, "verdict", d.verdict === "PASS" ? "PASS" : `FAIL: ${d.reason ?? ""}`, d.verdict === "PASS" ? "pass" : "fail");
+        if (d.verdict === "FAIL") { o.pill.textContent = "rejected, refund pending"; o.pill.className = "pill fail"; }
+        break;
+      case "escrow_finished":
+        fill(o, "closed", [document.createTextNode("Seller paid · "), link(e.txHash, "EscrowFinish ↗")], "pass");
+        o.pill.textContent = "seller paid"; o.pill.className = "pill pass";
+        refreshBalances();
+        break;
+      case "escrow_reclaimed":
+        fill(o, "closed", [document.createTextNode("Buyer refunded · "), link(e.txHash, "EscrowCancel ↗")], "fail");
+        o.pill.textContent = "buyer refunded"; o.pill.className = "pill fail";
+        refreshBalances();
+        break;
+    }
+  }
+
+  async function refreshBalances() {
+    try {
+      const b = await (await fetch("/balances")).json();
+      for (const who of ["buyer", "seller"]) {
+        if (b[who] == null) continue;
+        const v = Number(b[who]);
+        startBalances[who] ??= v;
+        document.getElementById(`b-${who}`).textContent = `${v.toFixed(6)} XRP`;
+        const delta = v - startBalances[who];
+        document.getElementById(`d-${who}`).textContent = delta === 0 ? "since page load: 0" : `since page load: ${delta > 0 ? "+" : ""}${delta.toFixed(6)}`;
+      }
+    } catch {}
+  }
+
+  for (const b of document.querySelectorAll("button[data-mode]")) {
+    b.addEventListener("click", () => fetch(`/run/${b.dataset.mode}`, { method: "POST" }));
+  }
+
+  const es = new EventSource("/stream");
+  es.addEventListener("config", (m) => { explorer = JSON.parse(m.data).explorer; });
+  es.onmessage = (m) => onEvent(JSON.parse(m.data));
+  refreshBalances();
+  setInterval(refreshBalances, 10000);
+</script>
+</body>
+</html>
