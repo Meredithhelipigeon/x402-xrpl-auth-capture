@@ -128,6 +128,25 @@ describe("AuthCaptureXrplServerScheme", () => {
     await expect(s.schemeHooks.onBeforeSettle!(ctx("after-handler"))).resolves.toMatchObject({ skip: true, result: { success: true, transaction: "" } });
   });
 
+  it("allows one collect per order at a time; only the claiming request can release it", async () => {
+    const { arbiter } = fakeArbiter();
+    const s = new AuthCaptureXrplServerScheme({ arbiter, captureAuthorizer: arbiterAddress });
+    const [req] = await s.enrichPaymentRequiredResponse(ctxFor([await built(s)]));
+    const ctx = (blob: string) =>
+      ({ paymentPayload: { x402Version: 2, accepted: req!, payload: { signedTxBlob: blob } }, requirements: req!, declaredExtensions: {}, phase: "before-handler" }) as unknown as SettleContext;
+    const failure = (blob: string) => ({ ...ctx(blob), error: new Error("x") }) as Parameters<NonNullable<typeof s.schemeHooks.onSettleFailure>>[0];
+
+    await expect(s.schemeHooks.onBeforeSettle!(ctx("AA"))).resolves.toBeUndefined();
+    // A second escrow for the same order while the first is still settling.
+    await expect(s.schemeHooks.onBeforeSettle!(ctx("BB"))).resolves.toEqual({ abort: true, reason: ERRORS.order });
+    // Core fires onSettleFailure for that abort; it must not free the first request's claim.
+    await s.schemeHooks.onSettleFailure!(failure("BB"));
+    await expect(s.schemeHooks.onBeforeSettle!(ctx("CC"))).resolves.toEqual({ abort: true, reason: ERRORS.order });
+    // The first collect fails at the ledger: its claim is released and the buyer can retry.
+    await s.schemeHooks.onSettleFailure!(failure("AA"));
+    await expect(s.schemeHooks.onBeforeSettle!(ctx("DD"))).resolves.toBeUndefined();
+  });
+
   it("records funding with the arbiter after the collect settles, and only then", async () => {
     const { arbiter, funded } = fakeArbiter();
     const s = new AuthCaptureXrplServerScheme({ arbiter, captureAuthorizer: arbiterAddress });
