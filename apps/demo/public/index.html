@@ -3,182 +3,579 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Verify-then-pay on XRPL</title>
+<title>Misa · verify-then-pay</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,700;12..96,800&family=Geist:wght@400;500;600&family=Geist+Mono:wght@400;500&display=swap" rel="stylesheet">
 <style>
+  /* Palette and type from trymisa.com */
   :root {
-    --bg: #f7f7f5; --panel: #ffffff; --ink: #1c1c1a; --muted: #6b6b66; --line: #e4e4df;
-    --pass: #1f7a4d; --pass-bg: #e6f4ec; --fail: #b3261e; --fail-bg: #fbe9e7;
-    --wait: #8a6d00; --wait-bg: #fff6d6; --accent: #2f5bd3;
-  }
-  @media (prefers-color-scheme: dark) {
-    :root {
-      --bg: #141413; --panel: #1e1e1c; --ink: #ecebe6; --muted: #9b9a93; --line: #2f2f2c;
-      --pass: #6fd19d; --pass-bg: #173326; --fail: #ff8a80; --fail-bg: #3a1c1a;
-      --wait: #e8c547; --wait-bg: #332b0f; --accent: #8fb0ff;
-    }
+    --base: #040a12; --ink: #e9ecf5; --primary: #1e8bff; --secondary: #7fd1ff;
+    --accent: #f5c451; --pass: #3ddc97; --fail: #ff5d6c; --wait: #f5c451;
+    --card: color-mix(in oklab, var(--base), var(--ink) 4%);
+    --card-2: color-mix(in oklab, var(--base), var(--ink) 7%);
+    --line: color-mix(in oklab, var(--ink) 11%, transparent);
+    --muted: color-mix(in oklab, var(--ink) 56%, var(--base));
+    --faint: color-mix(in oklab, var(--ink) 34%, var(--base));
+    --display: "Bricolage Grotesque", "Geist", ui-sans-serif, system-ui, sans-serif;
+    --sans: "Geist", ui-sans-serif, system-ui, -apple-system, sans-serif;
+    --mono: "Geist Mono", ui-monospace, "SF Mono", Menlo, monospace;
+    --radius: 12px;
+    color-scheme: dark;
   }
   * { box-sizing: border-box; }
-  body { margin: 0; background: var(--bg); color: var(--ink); font: 15px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif; }
-  main { max-width: 980px; margin: 0 auto; padding: 32px 16px 64px; }
-  h1 { font-size: 26px; margin: 0 0 4px; letter-spacing: -0.01em; }
-  .sub { color: var(--muted); margin: 0 0 24px; }
-  .bar { display: flex; flex-wrap: wrap; gap: 12px; align-items: stretch; margin-bottom: 24px; }
-  button { font: inherit; font-weight: 600; border: 1px solid var(--line); border-radius: 10px; padding: 12px 18px; cursor: pointer; background: var(--panel); color: var(--ink); }
-  button.honest { border-color: var(--pass); color: var(--pass); }
-  button.cheat { border-color: var(--fail); color: var(--fail); }
-  button:hover { filter: brightness(0.97); }
-  .balances { margin-left: auto; display: flex; gap: 12px; }
-  .bal { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 8px 14px; min-width: 150px; }
-  .bal .k { color: var(--muted); font-size: 12px; text-transform: uppercase; letter-spacing: 0.06em; }
-  .bal .v { font-size: 20px; font-variant-numeric: tabular-nums; font-weight: 600; }
-  .bal .d { font-size: 12px; font-variant-numeric: tabular-nums; }
-  .orders { display: grid; gap: 14px; }
-  .order { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 16px 18px; }
-  .order header { display: flex; justify-content: space-between; gap: 12px; align-items: baseline; margin-bottom: 12px; flex-wrap: wrap; }
-  .order code { font-size: 13px; color: var(--muted); }
-  .pill { font-size: 12px; font-weight: 700; padding: 3px 10px; border-radius: 999px; background: var(--wait-bg); color: var(--wait); }
-  .pill.pass { background: var(--pass-bg); color: var(--pass); }
-  .pill.fail { background: var(--fail-bg); color: var(--fail); }
-  ol.steps { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(5, 1fr); gap: 8px; }
-  ol.steps li { border-top: 3px solid var(--line); padding-top: 8px; color: var(--muted); font-size: 13px; min-width: 0; }
-  ol.steps li.done { border-color: var(--accent); color: var(--ink); }
-  ol.steps li.done.pass { border-color: var(--pass); }
-  ol.steps li.done.fail { border-color: var(--fail); }
-  ol.steps .t { font-weight: 600; display: block; }
-  ol.steps .x { overflow-wrap: anywhere; }
-  a { color: var(--accent); }
-  .empty { color: var(--muted); border: 1px dashed var(--line); border-radius: 12px; padding: 28px; text-align: center; }
-  .err { color: var(--fail); font-size: 13px; }
-  @media (max-width: 640px) {
-    ol.steps { grid-template-columns: 1fr; }
-    .balances { margin-left: 0; width: 100%; }
-    .bal { flex: 1; min-width: 0; }
+  html, body { margin: 0; }
+  body {
+    background:
+      radial-gradient(900px 520px at 8% -6%, color-mix(in oklab, var(--primary) 30%, transparent), transparent 62%),
+      radial-gradient(700px 520px at 100% 28%, color-mix(in oklab, var(--secondary) 13%, transparent), transparent 60%),
+      linear-gradient(color-mix(in oklab, var(--ink) 4%, transparent) 1px, transparent 1px) 0 0 / 48px 48px,
+      linear-gradient(90deg, color-mix(in oklab, var(--ink) 4%, transparent) 1px, transparent 1px) 0 0 / 48px 48px,
+      var(--base);
+    color: var(--ink); font: 15px/1.55 var(--sans); min-height: 100vh;
   }
+  main.dash { max-width: 1440px; margin: 0 auto; padding: 16px; min-height: 100vh; display: flex; overflow-wrap: anywhere; }
+  main.dash > .grid { flex: 1; }
+  a { color: var(--secondary); text-decoration: none; }
+  a:hover { text-decoration: underline; }
+  code, .mono { font-family: var(--mono); }
+
+  .chip { display: inline-flex; align-items: center; gap: 8px; font: 500 11px var(--mono); letter-spacing: .12em; text-transform: uppercase; color: var(--secondary); padding: 6px 12px; border: 1px solid var(--line); border-radius: 999px; background: color-mix(in oklab, var(--base) 70%, transparent); }
+  .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--pass); box-shadow: 0 0 10px var(--pass); animation: blink 1.8s ease-in-out infinite; }
+  .chip.off { color: var(--fail); } .chip.off .dot { background: var(--fail); box-shadow: none; animation: none; }
+  @keyframes blink { 50% { opacity: .35; } }
+
+
+  .card { background: var(--card); border: 1px solid var(--line); border-radius: var(--radius); }
+
+  /* controls */
+  .controls { display: flex; flex-wrap: wrap; gap: 10px; }
+  button.run { font: 600 14px var(--sans); border-radius: 10px; padding: 10px 16px; cursor: pointer; border: 1px solid transparent; text-align: left; transition: transform .12s ease, box-shadow .2s ease, background .2s; }
+  button.run small { display: block; font: 400 12px var(--mono); opacity: .75; margin-top: 2px; }
+  button.run:active { transform: translateY(1px); }
+  button.run.honest { background: var(--primary); color: #fff; box-shadow: 0 0 30px -4px var(--primary); }
+  button.run.honest:hover { box-shadow: 0 0 40px -2px var(--primary); }
+  button.run.cheat { background: transparent; color: var(--ink); border-color: var(--line); }
+  button.run.cheat:hover { border-color: var(--fail); color: var(--fail); }
+  .k { font: 500 10.5px var(--mono); letter-spacing: .12em; text-transform: uppercase; color: var(--muted); }
+
+  /* stage */
+  .grid { display: grid; grid-template-columns: minmax(0, 1fr) 360px; gap: 16px; align-items: stretch; }
+  .stage { position: relative; padding: 18px 20px; overflow: hidden; display: flex; flex-direction: column; }
+  .stage-head { display: flex; justify-content: space-between; align-items: center; gap: 12px; margin-bottom: 18px; flex-wrap: wrap; }
+  .stage-head .caption { font: 700 18px var(--display); letter-spacing: -0.01em; }
+  .flow { position: relative; display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.15fr) minmax(0, 1fr); grid-template-rows: auto auto; gap: 16px 18px; align-items: center; }
+  .node { position: relative; z-index: 2; background: var(--card-2); border: 1px solid var(--line); border-radius: var(--radius); padding: 16px 12px 14px; text-align: center; transition: border-color .3s, box-shadow .3s, transform .3s; }
+  .node .name { font: 700 16px var(--display); margin-top: 10px; }
+  .node .role { font: 500 10.5px var(--mono); letter-spacing: .1em; text-transform: uppercase; color: var(--muted); }
+  .node .sub { font: 400 12px var(--mono); color: var(--faint); }
+  .node .bal { font: 600 15px var(--mono); font-variant-numeric: tabular-nums; margin-top: 6px; }
+  .node .delta { font: 400 12px var(--mono); min-height: 18px; }
+  .node.glow { border-color: var(--primary); box-shadow: 0 0 0 1px var(--primary), 0 0 30px -6px var(--primary); transform: translateY(-2px); }
+  .node.good { border-color: var(--pass); box-shadow: 0 0 0 1px var(--pass), 0 0 30px -8px var(--pass); }
+  .node.bad { border-color: var(--fail); box-shadow: 0 0 0 1px var(--fail), 0 0 30px -8px var(--fail); }
+  .arbiter { grid-column: 2; grid-row: 1; background: transparent; border-color: transparent; }
+  .buyer { grid-column: 1; grid-row: 2; } .vault { grid-column: 2; grid-row: 2; } .seller { grid-column: 3; grid-row: 2; }
+
+  /* agent characters, in the style of trymisa.com */
+  .agent { width: 58px; height: 58px; margin: 0 auto; position: relative; }
+  .agent .eyes { position: absolute; left: 50%; top: 46%; transform: translate(-50%, -50%); display: flex; gap: 9px; }
+  .agent .eyes i { width: 7px; height: 9px; border-radius: 50%; background: #071222; display: block; animation: look 6s ease-in-out infinite; }
+  @keyframes look { 0%, 44%, 56%, 100% { transform: scaleY(1); } 50% { transform: scaleY(.15); } }
+  .agent.blue { border-radius: 50%; background: radial-gradient(circle at 34% 28%, #b9e6ff, var(--secondary) 22%, var(--primary) 58%, #0a3f8f); box-shadow: 0 0 26px -2px color-mix(in oklab, var(--primary) 80%, transparent), inset 0 -6px 12px rgba(0,0,0,.25); }
+  .agent.gold { border-radius: 16px; width: 62px; height: 50px; margin-top: 8px; background: radial-gradient(circle at 34% 26%, #fff1c2, var(--accent) 40%, #b9851e); box-shadow: 0 0 26px -6px var(--accent), inset 0 -6px 12px rgba(0,0,0,.2); }
+  .agent.gold::before, .agent.gold::after { content: ""; position: absolute; top: -9px; width: 3px; height: 10px; background: #d9a33a; border-radius: 2px; }
+  .agent.gold::before { left: 14px; transform: rotate(-14deg); } .agent.gold::after { right: 14px; transform: rotate(14deg); }
+  .node.bad .agent.gold { filter: saturate(.6) brightness(.85); }
+
+  /* misa orb (the arbiter) */
+  .orb-wrap { position: relative; width: 112px; height: 112px; margin: 0 auto; display: grid; place-items: center; }
+  .orb-wrap .ring1, .orb-wrap .ring2 { position: absolute; inset: 0; border-radius: 50%; border: 1px solid color-mix(in oklab, var(--primary) 60%, transparent); }
+  .orb-wrap .ring2 { inset: 15px; border-color: var(--line); }
+  .orb-wrap .sat { position: absolute; width: 10px; height: 10px; border-radius: 50%; background: var(--secondary); box-shadow: 0 0 10px var(--secondary); top: -5px; left: 50%; margin-left: -5px; transform-origin: 5px 61px; animation: orbit 9s linear infinite; }
+  @keyframes orbit { to { transform: rotate(360deg); } }
+  .orb { width: 66px; height: 66px; border-radius: 50%; background: radial-gradient(circle at 50% 40%, #0d1a2c, #050b14 70%); display: grid; place-items: center; font: 700 20px var(--display); box-shadow: 0 0 40px -4px var(--primary), inset 0 0 0 1px color-mix(in oklab, var(--primary) 50%, transparent); transition: box-shadow .4s; }
+  .node.good .orb { box-shadow: 0 0 44px -2px var(--pass), inset 0 0 0 1px var(--pass); }
+  .node.bad .orb { box-shadow: 0 0 44px -2px var(--fail), inset 0 0 0 1px var(--fail); }
+  .node.glow .orb { box-shadow: 0 0 60px 0 var(--primary), inset 0 0 0 1px var(--primary); }
+  .arbiter.glow, .arbiter.good, .arbiter.bad { box-shadow: none; border-color: transparent; transform: none; }
+  .stamp { position: absolute; right: 2px; top: 6px; font: 700 12px var(--mono); letter-spacing: .14em; padding: 3px 8px; border-radius: 6px; border: 1.5px solid currentColor; transform: rotate(8deg) scale(0); transition: transform .35s cubic-bezier(.2,1.6,.4,1); background: var(--base); }
+  .stamp.show { transform: rotate(8deg) scale(1); }
+  .stamp.pass { color: var(--pass); } .stamp.fail { color: var(--fail); }
+  .verdict-line { font: 400 12px var(--mono); color: var(--muted); min-height: 18px; margin-top: 4px; }
+
+  /* escrow vault */
+  .vault .amount { font: 800 28px/1.1 var(--display); font-variant-numeric: tabular-nums; letter-spacing: -0.02em; margin-top: 4px; }
+  .vault .state { font: 500 10.5px var(--mono); letter-spacing: .12em; text-transform: uppercase; color: var(--secondary); }
+  .vault .sub { font-family: var(--sans); }
+  .ring { width: 64px; height: 64px; margin: 8px auto 4px; position: relative; }
+  .ring svg { transform: rotate(-90deg); }
+  .ring .t { position: absolute; inset: 0; display: grid; place-items: center; font: 600 13px var(--mono); font-variant-numeric: tabular-nums; }
+
+  svg.wires { position: absolute; inset: 0; width: 100%; height: 100%; z-index: 1; pointer-events: none; }
+  svg.wires path { fill: none; stroke: var(--line); stroke-width: 1.5; stroke-dasharray: 4 6; }
+  svg.wires path.active { stroke: var(--primary); filter: drop-shadow(0 0 4px var(--primary)); animation: flow 0.8s linear infinite; }
+  @keyframes flow { to { stroke-dashoffset: -20; } }
+
+  .token { position: absolute; z-index: 5; width: 42px; height: 42px; margin: -21px 0 0 -21px; border-radius: 50%; background: radial-gradient(circle at 35% 30%, #fff, var(--secondary) 35%, var(--primary)); color: #04101f; display: grid; place-items: center; font: 700 11px var(--mono); box-shadow: 0 0 24px var(--primary); pointer-events: none; }
+  .token.doc { border-radius: 8px; width: 48px; height: 30px; margin: -15px 0 0 -24px; background: var(--card-2); color: var(--accent); border: 1px solid var(--accent); box-shadow: 0 0 18px -4px var(--accent); font-size: 10px; letter-spacing: .1em; }
+
+  /* narration */
+  .narr { margin-top: 14px; border-radius: var(--radius); padding: 14px 16px; background: color-mix(in oklab, var(--base) 60%, transparent); border: 1px solid var(--line); min-height: 96px; }
+  .narr-step { font: 500 11px var(--mono); letter-spacing: .12em; text-transform: uppercase; color: var(--secondary); }
+  .narr-text { font-size: 15px; margin-top: 6px; }
+  .working::after { content: ""; display: inline-block; width: 1.2em; text-align: left; animation: dots 1.2s steps(4, end) infinite; }
+  @keyframes dots { 0% { content: ""; } 25% { content: "."; } 50% { content: ".."; } 75% { content: "..."; } }
+  .checks { list-style: none; margin: 12px 0 0; padding: 0; display: grid; gap: 7px; }
+  .checks li { display: flex; gap: 10px; align-items: center; font-size: 14px; color: var(--faint); transition: color .3s; }
+  .checks .mark { width: 20px; height: 20px; border-radius: 50%; display: grid; place-items: center; font: 700 12px var(--mono); border: 1.5px solid var(--line); flex: none; }
+  .checks li.checking { color: var(--ink); }
+  .checks li.checking .mark { border-color: var(--primary); border-top-color: transparent; animation: spin .8s linear infinite; }
+  .checks li.ok { color: var(--ink); } .checks li.ok .mark { background: var(--pass); border-color: var(--pass); color: var(--base); }
+  .checks li.bad { color: var(--fail); font-weight: 600; } .checks li.bad .mark { background: var(--fail); border-color: var(--fail); color: var(--base); }
+  .checks li.skip { opacity: .45; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* activity log */
+  .log { padding: 14px; max-height: calc(100vh - 32px); overflow: auto; }
+  .log-head { display: flex; justify-content: space-between; align-items: center; gap: 8px; margin: 2px 4px 12px; }
+  .log-head h3 { margin: 0; }
+  .log-empty { color: var(--faint); font-size: 13px; margin: 8px 4px; }
+  .log h3 { margin: 2px 4px 12px; }
+  .log ol { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
+  .log li { display: grid; grid-template-columns: 64px minmax(0, 1fr); gap: 10px; align-items: start; padding: 10px; border-radius: 10px; background: var(--card-2); border: 1px solid var(--line); font-size: 13px; animation: slide .35s ease; }
+  .log li .when { color: var(--faint); font: 400 11px var(--mono); margin-top: 2px; }
+  .log code { font-size: 12px; color: var(--accent); }
+  @keyframes slide { from { opacity: 0; transform: translateY(-6px); } }
+  .tag { font: 500 10px var(--mono); letter-spacing: .1em; text-transform: uppercase; padding: 3px 7px; border-radius: 6px; border: 1px solid var(--line); color: var(--secondary); text-align: center; white-space: nowrap; }
+  .tag.pass { color: var(--pass); border-color: color-mix(in oklab, var(--pass) 40%, transparent); }
+  .tag.fail { color: var(--fail); border-color: color-mix(in oklab, var(--fail) 40%, transparent); }
+  .tag.warn { color: var(--accent); border-color: color-mix(in oklab, var(--accent) 40%, transparent); }
+  .tag.honest { color: var(--pass); border-color: color-mix(in oklab, var(--pass) 40%, transparent); }
+  .tag.cheat { color: var(--fail); border-color: color-mix(in oklab, var(--fail) 40%, transparent); }
+
+
+
+  @media (max-width: 900px) { .grid { grid-template-columns: minmax(0, 1fr); } .log { max-height: 360px; } main.dash { display: block; } }
+  @media (max-width: 620px) {
+    .flow { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
+    .arbiter { grid-column: 1 / -1; } .vault { grid-column: 1 / -1; grid-row: 2; } .buyer { grid-column: 1; grid-row: 3; } .seller { grid-column: 2; grid-row: 3; }
+    button.run { flex: 1 1 100%; }
+  }
+  @media (prefers-reduced-motion: reduce) { .token { display: none; } * { animation: none !important; transition: none !important; } }
 </style>
 </head>
 <body>
-<main>
-  <h1>Verify-then-pay for AI agents on XRPL</h1>
-  <p class="sub">The buyer's XRP is locked in a native escrow. An independent arbiter checks the data and releases the money only if it passes. Otherwise the escrow refunds after its deadline.</p>
-  <div class="bar">
-    <button class="honest" data-mode="honest">Buy from an honest seller</button>
-    <button class="cheat" data-mode="cheat">Buy from a cheating seller</button>
-    <div class="balances">
-      <div class="bal"><div class="k">Buyer</div><div class="v" id="b-buyer">–</div><div class="d" id="d-buyer"></div></div>
-      <div class="bal"><div class="k">Seller</div><div class="v" id="b-seller">–</div><div class="d" id="d-seller"></div></div>
-    </div>
+<main class="dash">
+  <div class="grid">
+    <section class="card stage" id="stage">
+      <div class="stage-head">
+        <div class="controls">
+          <button class="run honest" data-mode="honest">Buy from honest seller</button>
+          <button class="run cheat" data-mode="cheat">Buy from cheating seller</button>
+        </div>
+        <div class="caption" id="caption">Press a button to start</div>
+      </div>
+      <div class="flow" id="flow">
+        <svg class="wires" id="wires" aria-hidden="true"></svg>
+        <div class="node arbiter" id="n-arbiter">
+          <span class="stamp" id="stamp"></span>
+          <div class="orb-wrap"><span class="ring1"></span><span class="ring2"></span><span class="sat"></span><div class="orb">misa</div></div>
+          <div class="role" style="margin-top:8px">Arbiter · holds the key</div>
+          <div class="sub" id="a-arbiter"></div>
+          <div class="verdict-line" id="verdict-line"></div>
+        </div>
+        <div class="node buyer" id="n-buyer">
+          <div class="agent blue"><span class="eyes"><i></i><i></i></span></div>
+          <div class="name">Buyer agent</div>
+          <div class="role">wants a price quote</div>
+          <div class="sub" id="a-buyer"></div>
+          <div class="bal" id="b-buyer">–</div><div class="delta" id="d-buyer"></div>
+        </div>
+        <div class="node vault" id="n-vault">
+          <div class="state" id="v-state">XRPL escrow</div>
+          <div class="amount" id="v-amount">0 XRP</div>
+          <div class="ring" id="ring" hidden>
+            <svg width="64" height="64"><circle cx="32" cy="32" r="27" fill="none" stroke="var(--line)" stroke-width="5"/><circle id="ring-arc" cx="32" cy="32" r="27" fill="none" stroke="var(--wait)" stroke-width="5" stroke-linecap="round" stroke-dasharray="170" stroke-dashoffset="0"/></svg>
+            <div class="t" id="ring-t"></div>
+          </div>
+          <div class="sub" id="v-sub">nothing locked</div>
+        </div>
+        <div class="node seller" id="n-seller">
+          <div class="agent gold"><span class="eyes"><i></i><i></i></span></div>
+          <div class="name">Seller agent</div>
+          <div class="role">sells price quotes</div>
+          <div class="sub" id="a-seller"></div>
+          <div class="bal" id="b-seller">–</div><div class="delta" id="d-seller"></div>
+        </div>
+      </div>
+      <div class="narr" id="narr">
+        <div class="narr-step" id="narr-step">Ready</div>
+        <div class="narr-text" id="explain">Press a button. Each step pauses so you can follow what happens on the ledger.</div>
+        <ul class="checks" id="checks" hidden></ul>
+      </div>
+    </section>
+
+    <aside class="card log">
+      <div class="log-head"><h3 class="k">Activity</h3><span class="chip" id="live"><span class="dot"></span><span id="live-text">Connecting</span></span></div>
+      <p class="log-empty" id="log-empty">Each step of a purchase shows up here, with links to the testnet explorer.</p>
+      <ol id="log"></ol>
+    </aside>
   </div>
-  <div id="errors"></div>
-  <div class="orders" id="orders"><div class="empty" id="empty">Press a button to start a purchase. Each one appears here as it happens on the XRPL testnet.</div></div>
+  <!-- Order state lives here; the dashboard shows the latest order in the diagram. -->
+  <div id="orders" hidden></div>
 </main>
+
 <script>
-  const STEPS = [
-    ["payment_required", "402 issued"],
-    ["escrow_locked", "Escrow locked"],
-    ["delivered", "Data delivered"],
-    ["verdict", "Arbiter verdict"],
-    ["closed", "Settled"],
-  ];
+
+  const STEPS = [["quoted", "402 issued"], ["locked", "Escrow locked"], ["delivered", "Data delivered"], ["judged", "Arbiter verdict"], ["closed", "Settled"]];
+  const REFUND_MARGIN = 25; // watcher cancels ~20 s after the deadline, plus a poll
   let explorer = "https://testnet.xrpl.org";
+  let live = false; // false while the server replays history: no animation
+  let focusId = null;
   const orders = new Map();
   const startBalances = {};
+  const $ = (id) => document.getElementById(id);
+  const el = (tag, cls, text) => { const e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; };
+  const txLink = (hash, label) => { const a = el("a", null, label); a.href = `${explorer}/transactions/${hash}`; a.target = "_blank"; a.rel = "noopener"; return a; };
+  const short = (a) => (a ? `${a.slice(0, 6)}…${a.slice(-4)}` : "");
+  const xrp = (drops) => `${(Number(drops) / 1e6).toLocaleString(undefined, { maximumFractionDigits: 6 })} XRP`;
+  const mmss = (s) => `${Math.floor(s / 60)}:${String(Math.max(0, Math.floor(s % 60))).padStart(2, "0")}`;
 
-  const el = (tag, cls, text) => { const e = document.createElement(tag); if (cls) e.className = cls; if (text) e.textContent = text; return e; };
-  const link = (hash, label) => { const a = el("a", null, label); a.href = `${explorer}/transactions/${hash}`; a.target = "_blank"; a.rel = "noopener"; return a; };
+  /* ---------- wires between nodes ---------- */
+  function center(node) {
+    const f = $("flow").getBoundingClientRect(), r = node.getBoundingClientRect();
+    return { x: r.left - f.left + r.width / 2, y: r.top - f.top + r.height / 2 };
+  }
+  function drawWires() {
+    const svg = $("wires");
+    const b = center($("n-buyer")), v = center($("n-vault")), s = center($("n-seller")), a = center($("n-arbiter"));
+    svg.innerHTML = `
+      <path id="w-bv" d="M${b.x},${b.y} L${v.x},${v.y}"/>
+      <path id="w-vs" d="M${v.x},${v.y} L${s.x},${s.y}"/>
+      <path id="w-av" d="M${a.x},${a.y} L${v.x},${v.y}"/>
+      <path id="w-ba" d="M${b.x},${b.y} Q${b.x},${a.y} ${a.x},${a.y}"/>
+      <path id="w-sb" d="M${s.x},${s.y} Q${(s.x + b.x) / 2},${s.y + 70} ${b.x},${b.y}"/>`;
+  }
+  function pulseWire(id, ms = 1400) {
+    const p = $(id); if (!p) return;
+    p.classList.add("active"); setTimeout(() => p.classList.remove("active"), ms);
+  }
+  function fly(fromNode, toNode, kind = "coin", label = "XRP") {
+    if (!live) return Promise.resolve();
+    const a = center(fromNode), b = center(toNode);
+    const t = el("div", kind === "doc" ? "token doc" : "token", kind === "doc" ? "DATA" : label);
+    $("flow").append(t);
+    const mid = { x: (a.x + b.x) / 2, y: Math.min(a.y, b.y) - 40 };
+    const anim = t.animate([
+      { left: `${a.x}px`, top: `${a.y}px`, transform: "scale(.6)", opacity: 0 },
+      { left: `${mid.x}px`, top: `${mid.y}px`, transform: "scale(1.1)", opacity: 1, offset: 0.5 },
+      { left: `${b.x}px`, top: `${b.y}px`, transform: "scale(.8)", opacity: 1 },
+    ], { duration: 1800, easing: "cubic-bezier(.45,.05,.3,1)" });
+    return anim.finished.then(() => t.remove());
+  }
+  function flash(node, cls, ms = 1600) {
+    node.classList.remove("glow", "good", "bad"); node.classList.add(cls);
+    if (ms) setTimeout(() => node.classList.remove(cls), ms);
+  }
 
-  function orderCard(id) {
+  /* ---------- log ---------- */
+  function log(icon, html, at) {
+    const li = el("li");
+    const body = el("div");
+    body.innerHTML = html;
+    body.append(el("div", "when", new Date(at || Date.now()).toLocaleTimeString()));
+    const tone = /PASS|PAID|RECEIPT/.test(icon) ? "pass" : /FAIL|ERROR/.test(icon) ? "fail" : icon === "REFUND" ? "warn" : "";
+    li.append(el("span", `tag ${tone}`, icon), body);
+    $("log-empty")?.remove();
+    $("log").prepend(li);
+    while ($("log").children.length > 40) $("log").lastChild.remove();
+  }
+  const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]);
+  const linkHtml = (hash, label) => `<a href="${explorer}/transactions/${hash}" target="_blank" rel="noopener">${label} ↗</a>`;
+
+  /* ---------- orders ---------- */
+  function order(id) {
     if (orders.has(id)) return orders.get(id);
-    document.getElementById("empty")?.remove();
-    const card = el("section", "order");
+    $("empty")?.remove();
+    const card = el("section", "panel order");
     const head = el("header");
-    const title = el("div");
-    title.append(el("strong", null, "Order "), el("code", null, id));
+    const left = el("div"); left.style.display = "flex"; left.style.gap = "8px"; left.style.alignItems = "center";
+    const tag = el("span", "tag", "…");
+    left.append(el("strong", null, "Order"), el("code", null, id), tag);
     const pill = el("span", "pill", "in progress");
-    head.append(title, pill);
-    const steps = el("ol", "steps");
-    const cells = {};
-    for (const [key, label] of STEPS) {
-      const li = el("li");
-      li.append(el("span", "t", label), el("span", "x", "…"));
-      steps.append(li);
-      cells[key] = li;
-    }
+    head.append(left, pill);
+    const steps = el("ol", "steps"); const cells = {};
+    for (const [k, label] of STEPS) { const li = el("li"); li.append(el("span", "t", label), el("span", "x", "…")); steps.append(li); cells[k] = li; }
     card.append(head, steps);
-    document.getElementById("orders").prepend(card);
-    const o = { card, pill, cells, verdict: null };
+    $("orders").prepend(card);
+    const o = { id, card, tag, pill, cells, amount: null, deadline: null, verdict: null, closed: null, mode: null };
     orders.set(id, o);
     return o;
   }
-
-  function fill(o, key, content, tone) {
-    const li = o.cells[key];
-    li.classList.add("done");
-    if (tone) li.classList.add(tone);
-    const x = li.querySelector(".x");
-    x.replaceChildren(...(Array.isArray(content) ? content : [content]));
+  function fill(o, k, content, tone) {
+    const li = o.cells[k]; li.classList.remove("now"); li.classList.add("done"); if (tone) li.classList.add(tone);
+    li.querySelector(".x").replaceChildren(...(Array.isArray(content) ? content : [content]));
+  }
+  function setMode(o, mode) {
+    if (!mode || o.mode) return;
+    o.mode = mode; o.tag.textContent = mode === "cheat" ? "cheating seller" : "honest seller"; o.tag.className = `tag ${mode}`;
   }
 
-  function onEvent(e) {
-    if (e.type === "error") {
-      const p = el("p", "err", `Run failed (${e.detail?.mode ?? "?"}): ${e.detail?.message ?? "unknown error"}`);
-      document.getElementById("errors").prepend(p);
+  /* ---------- stage ---------- */
+  function caption(text, explain) { $("caption").textContent = text; if (explain !== undefined) $("explain").textContent = explain; }
+  const sleep = (ms) => (live ? new Promise((r) => setTimeout(r, ms)) : Promise.resolve());
+  function narrate(step, title, text, working = false) {
+    $("narr-step").textContent = step; $("caption").textContent = title;
+    $("explain").textContent = text; $("explain").classList.toggle("working", working);
+  }
+  const CHECKS = ["Seller's signature matches the seller's account", "It's the promised symbol (XRP)", "Price is a positive number", "Quote is fresh (under 60 s old)"];
+  function showChecks() {
+    $("checks").hidden = false;
+    $("checks").replaceChildren(...CHECKS.map((t) => { const li = el("li"); li.append(el("span", "mark", ""), el("span", null, t)); return li; }));
+  }
+  function setCheck(i, state) {
+    const li = $("checks").children[i]; if (!li) return;
+    li.className = state; li.querySelector(".mark").textContent = state === "ok" ? "✓" : state === "bad" ? "✗" : state === "skip" ? "–" : "";
+  }
+  /** Which check a FAIL reason from Misa's judge corresponds to. */
+  function failedCheck(reason = "") {
+    if (/symbol|JSON|terms/.test(reason)) return 1;
+    if (/price/.test(reason)) return 2;
+    if (/old|asOf|future/.test(reason)) return 3;
+    return 2;
+  }
+  function setVault(amountDrops, state, sub) {
+    $("v-amount").textContent = amountDrops ? xrp(amountDrops) : "0 XRP";
+    $("v-state").textContent = state; $("v-sub").textContent = sub;
+  }
+  function stamp(verdict) {
+    const s = $("stamp"); s.className = "stamp"; s.textContent = "";
+    if (!verdict) return;
+    s.textContent = verdict; s.classList.add(verdict === "PASS" ? "pass" : "fail");
+    requestAnimationFrame(() => s.classList.add("show"));
+  }
+  function resetStage() {
+    $("checks").hidden = true;
+    $("n-seller").classList.remove("bad");
+    stamp(null); $("verdict-line").textContent = ""; $("ring").hidden = true;
+    for (const n of ["n-buyer", "n-vault", "n-seller", "n-arbiter"]) $(n).classList.remove("glow", "good", "bad");
+  }
+
+  function tick() {
+    const now = Date.now() / 1000;
+    for (const o of orders.values()) {
+      if (!o.locked && o.deadline && now > o.deadline && !o.abandoned) {
+        // A 402 the buyer never paid: nothing was locked, so there is nothing to settle.
+        o.abandoned = true; o.pill.textContent = "never paid"; o.pill.className = "pill"; o.card.style.opacity = "0.55";
+        o.cells.closed.querySelector(".x").textContent = "no escrow was created";
+      }
+      if (o.verdict !== "FAIL" || o.closed || !o.deadline) continue;
+      const toDeadline = o.deadline - now;
+      const x = o.cells.closed.querySelector(".x");
+      o.cells.closed.classList.add("now");
+      x.textContent = toDeadline > 0
+        ? `Refund unlocks in ${mmss(toDeadline)}. XRPL won't allow it sooner.`
+        : `Deadline passed. The watcher is cancelling the escrow (~${Math.max(0, Math.ceil(o.deadline + REFUND_MARGIN - now))}s)…`;
+    }
+    const f = orders.get(focusId);
+    if (f && f.deadline && f.amount && !f.closed) {
+      const total = f.lock || 150, left = f.deadline - now;
+      $("ring").hidden = false;
+      $("ring-arc").style.strokeDashoffset = String(170 * (1 - Math.max(0, Math.min(1, left / total))));
+      $("ring-arc").style.stroke = f.verdict === "FAIL" ? "var(--fail)" : "var(--wait)";
+      $("ring-t").textContent = left > 0 ? mmss(left) : "0:00";
+      if (f.verdict === "FAIL") $("v-sub").textContent = left > 0 ? "refund unlocks at the deadline" : "refunding to the buyer…";
+    } else $("ring").hidden = true;
+  }
+
+  /* ---------- events ---------- */
+  async function onEvent(e) {
+    const d = e.detail || {};
+    if (e.type === "error") { log("ERROR", `<b>Run failed</b> (${esc(d.mode)}): ${esc(d.message)}`, e.at); return; }
+    if (e.type === "run_started") {
+      if (live) {
+        resetStage();
+        narrate("Step 1 of 5 · Ask", d.mode === "cheat" ? "Buying from the cheating seller" : "Buying from the honest seller",
+          "The buyer agent calls the seller's paid API: GET /quote?symbol=XRP", true);
+        flash($("n-buyer"), "glow"); pulseWire("w-sb", 2500);
+      }
       return;
     }
     if (!e.orderId) return;
-    const o = orderCard(e.orderId);
-    const d = e.detail ?? {};
+    const o = order(e.orderId);
+    if (live) focusId = e.orderId;
+    const focused = focusId === e.orderId;
+    const show = focused && live;
+
     switch (e.type) {
-      case "payment_required":
-        fill(o, "payment_required", `${Number(d.amount) / 1e6} XRP, deadline ${new Date(d.captureDeadline * 1000).toLocaleTimeString()}`);
+      case "payment_required": {
+        o.amount = d.amount; o.deadline = d.captureDeadline; o.lock = d.captureDeadline - Math.floor((e.at || Date.now()) / 1000);
+        fill(o, "quoted", `${xrp(d.amount)} · deadline ${new Date(d.captureDeadline * 1000).toLocaleTimeString()}`);
+        log("402", `Seller answers <b>402 Payment Required</b>: ${xrp(d.amount)}, held until ${new Date(d.captureDeadline * 1000).toLocaleTimeString()}.`, e.at);
+        if (show) {
+          narrate("Step 1 of 5 · 402 Payment Required", `The seller asks for ${xrp(d.amount)}, paid into an escrow`,
+            `Misa just created a fresh secret lock for this order. Only Misa can open it, and only before ${new Date(d.captureDeadline * 1000).toLocaleTimeString()}.`);
+          flash($("n-arbiter"), "glow", 2500); pulseWire("w-av", 2500);
+          await sleep(3000);
+        }
         break;
-      case "escrow_locked":
-        fill(o, "escrow_locked", e.txHash ? link(e.txHash, "EscrowCreate ↗") : "locked");
+      }
+      case "escrow_locked": {
+        o.locked = true;
+        fill(o, "locked", txLink(e.txHash, "EscrowCreate ↗"));
+        log("LOCK", `Buyer's ${xrp(o.amount || d.amount)} locked in escrow. ${linkHtml(e.txHash, "EscrowCreate")}`, e.at);
+        if (focused) {
+          if (show) {
+            narrate("Step 2 of 5 · Lock", "Creating the escrow on the XRP Ledger",
+              `The agent signs an EscrowCreate: ${xrp(o.amount || d.amount)} to the seller, locked by Misa's condition, refundable after the deadline. The facilitator submits it and waits for the ledger to validate it`, true);
+            flash($("n-buyer"), "glow", 2000);
+            await sleep(2200);
+          }
+          pulseWire("w-bv", 2000); await fly($("n-buyer"), $("n-vault"), "coin", "XRP");
+          setVault(o.amount || d.amount, "Locked in escrow", "can only go to the seller, with Misa's secret");
+          if (show) {
+            narrate("Step 2 of 5 · Lock", "Money locked ✓, but not paid",
+              "The EscrowCreate is validated on the ledger. The seller can see the money is there, but can't touch it.");
+            flash($("n-vault"), "glow", 3000); refreshBalances();
+            await sleep(3200);
+          }
+        }
         break;
-      case "delivered":
-        if (e.source === "seller") fill(o, "delivered", d.body ? JSON.stringify(d.body) : "signed quote");
+      }
+      case "delivered": {
+        if (e.source === "seller") {
+          setMode(o, d.mode);
+          o.body = d.body;
+          fill(o, "delivered", d.body ? JSON.stringify(d.body) : "signed quote");
+          log("DATA", `Seller delivers a signed quote: <code>${esc(JSON.stringify(d.body))}</code>`, e.at);
+          if (show) {
+            narrate("Step 3 of 5 · Deliver", "The seller delivers the data",
+              `${JSON.stringify(d.body)}. The seller signs these exact bytes, so nobody can swap them later.`);
+            pulseWire("w-sb", 2000); await fly($("n-seller"), $("n-buyer"), "doc");
+            await sleep(2500);
+          }
+        } else if (e.source === "arbiter" && show) {
+          narrate("Step 4 of 5 · Verify", "Misa is checking the data",
+            "The buyer forwards exactly what it received. Misa runs its checks before it decides who gets the money", true);
+          pulseWire("w-ba", 2000); await fly($("n-buyer"), $("n-arbiter"), "doc");
+          flash($("n-arbiter"), "glow", 0);
+          showChecks();
+          for (let i = 0; i < CHECKS.length; i++) { setCheck(i, "checking"); await sleep(900); }
+        }
         break;
-      case "verdict":
+      }
+      case "verdict": {
         if (e.source !== "arbiter" || !d.verdict) break;
         o.verdict = d.verdict;
-        fill(o, "verdict", d.verdict === "PASS" ? "PASS" : `FAIL: ${d.reason ?? ""}`, d.verdict === "PASS" ? "pass" : "fail");
-        if (d.verdict === "FAIL") { o.pill.textContent = "rejected, refund pending"; o.pill.className = "pill fail"; }
+        const pass = d.verdict === "PASS";
+        fill(o, "judged", pass ? "PASS ✓" : `FAIL: ${d.reason || ""}`, pass ? "pass" : "fail");
+        if (!pass) { o.pill.textContent = "rejected · refund pending"; o.pill.className = "pill fail"; o.reason = d.reason; }
+        log(pass ? "PASS" : "FAIL", pass ? "Misa: <b>PASS</b>. The data checks out." : `Misa: <b>FAIL</b>. ${esc(d.reason || "")}`, e.at);
+        if (focused) {
+          if (show) {
+            if ($("checks").hidden) showChecks();
+            const bad = pass ? -1 : failedCheck(d.reason);
+            for (let i = 0; i < CHECKS.length; i++) {
+              setCheck(i, bad === -1 || i < bad ? "ok" : i === bad ? "bad" : "skip");
+              await sleep(i === bad ? 1200 : 600);
+            }
+          }
+          stamp(d.verdict); $("verdict-line").textContent = pass ? "data verified" : d.reason || "";
+          flash($("n-arbiter"), pass ? "good" : "bad", 0);
+          if (!pass) flash($("n-seller"), "bad", 0);
+          if (!pass) setVault(o.amount, "Locked · rejected", "refund unlocks at the deadline");
+          if (show) {
+            narrate("Step 4 of 5 · Verdict", pass ? "PASS: the data checks out" : `FAIL: ${d.reason}`,
+              pass ? "Misa will now release the escrow to the seller."
+                   : "The seller will never get this money. The escrow stays locked until its deadline (see the countdown), then it can only go back to the buyer.");
+            await sleep(3200);
+            if (!pass) narrate("Step 5 of 5 · Refund", "Waiting for the deadline", "XRPL doesn't allow an escrow to be cancelled early. After the deadline, the facilitator's watcher cancels it and the money goes back to the buyer", true);
+          }
+        }
         break;
-      case "escrow_finished":
-        fill(o, "closed", [document.createTextNode("Seller paid · "), link(e.txHash, "EscrowFinish ↗")], "pass");
+      }
+      case "escrow_finished": {
+        o.closed = "paid";
+        fill(o, "closed", [document.createTextNode("Seller paid · "), txLink(e.txHash, "EscrowFinish ↗")], "pass");
         o.pill.textContent = "seller paid"; o.pill.className = "pill pass";
-        refreshBalances();
+        log("PAID", `Escrow released to the seller. ${linkHtml(e.txHash, "EscrowFinish")}`, e.at);
+        if (focused) {
+          if (show) {
+            narrate("Step 5 of 5 · Pay", "Releasing the escrow to the seller",
+              "Misa submits an EscrowFinish that reveals its secret. The ledger checks the secret against the lock and releases the money", true);
+            await sleep(2200);
+          }
+          pulseWire("w-vs", 2000); await fly($("n-vault"), $("n-seller"), "coin", "XRP");
+          setVault(0, "Escrow closed", "paid to the seller"); flash($("n-seller"), "good", 3000);
+          if (show) { narrate("Done", "Seller paid ✓, for verified data only", "Without a PASS from Misa, this money would have gone back to the buyer."); refreshBalances(); }
+        }
         break;
-      case "escrow_reclaimed":
-        fill(o, "closed", [document.createTextNode("Buyer refunded · "), link(e.txHash, "EscrowCancel ↗")], "fail");
+      }
+      case "escrow_reclaimed": {
+        o.closed = "refunded";
+        fill(o, "closed", [document.createTextNode("Buyer refunded · "), txLink(e.txHash, "EscrowCancel ↗")], "fail");
         o.pill.textContent = "buyer refunded"; o.pill.className = "pill fail";
-        refreshBalances();
+        log("REFUND", `Deadline passed: escrow returned to the buyer. ${linkHtml(e.txHash, "EscrowCancel")}`, e.at);
+        if (focused) {
+          if (show) {
+            narrate("Step 5 of 5 · Refund", "Deadline passed: refunding the buyer",
+              "The facilitator's watcher submits an EscrowCancel. Anyone may send it, but the ledger only lets the money go back to the buyer", true);
+            await sleep(2200);
+          }
+          pulseWire("w-bv", 2000); await fly($("n-vault"), $("n-buyer"), "coin", "XRP");
+          setVault(0, "Escrow closed", "refunded to the buyer"); flash($("n-buyer"), "good", 3000);
+          if (show) { narrate("Done", "Buyer refunded ✓: the cheat earned nothing", "The agent's only cost was the 12-drop network fee. Under pay-first x402 it would have lost the full price."); refreshBalances(); }
+        }
+        break;
+      }
+      case "receipt":
+        if (d.receiptChecked) log("RECEIPT", "Buyer verified Misa's signed receipt.", e.at);
         break;
     }
   }
 
+  /* ---------- balances ---------- */
   async function refreshBalances() {
     try {
       const b = await (await fetch("/balances")).json();
       for (const who of ["buyer", "seller"]) {
         if (b[who] == null) continue;
-        const v = Number(b[who]);
-        startBalances[who] ??= v;
-        document.getElementById(`b-${who}`).textContent = `${v.toFixed(6)} XRP`;
+        const v = Number(b[who]); startBalances[who] ??= v;
+        $(`b-${who}`).textContent = `${v.toFixed(6)} XRP`;
         const delta = v - startBalances[who];
-        document.getElementById(`d-${who}`).textContent = delta === 0 ? "since page load: 0" : `since page load: ${delta > 0 ? "+" : ""}${delta.toFixed(6)}`;
+        const dEl = $(`d-${who}`);
+        dEl.textContent = Math.abs(delta) < 1e-9 ? "" : `${delta > 0 ? "+" : ""}${delta.toFixed(6)} this session`;
+        dEl.style.color = delta > 0 ? "var(--pass)" : delta < 0 ? "var(--fail)" : "";
       }
     } catch {}
   }
 
-  for (const b of document.querySelectorAll("button[data-mode]")) {
-    b.addEventListener("click", () => fetch(`/run/${b.dataset.mode}`, { method: "POST" }));
+  /* ---------- wiring ---------- */
+  for (const btn of document.querySelectorAll("button[data-mode]")) {
+    btn.addEventListener("click", () => fetch(`/run/${btn.dataset.mode}`, { method: "POST" }));
   }
-
+  // Events are handled one at a time so animations play in order.
+  let chain = Promise.resolve();
   const es = new EventSource("/stream");
-  es.addEventListener("config", (m) => { explorer = JSON.parse(m.data).explorer; });
-  es.onmessage = (m) => onEvent(JSON.parse(m.data));
+  es.addEventListener("config", (m) => {
+    const c = JSON.parse(m.data); explorer = c.explorer;
+    for (const who of ["buyer", "seller", "arbiter"]) {
+      const a = el("a", null, short(c[who])); a.href = `${explorer}/accounts/${c[who]}`; a.target = "_blank"; a.rel = "noopener";
+      $(`a-${who}`).replaceChildren(a);
+    }
+    live = false;
+    setTimeout(() => { chain = chain.then(() => { live = true; }); }, 800);
+  });
+  es.onmessage = (m) => { const e = JSON.parse(m.data); chain = chain.then(() => onEvent(e)).catch(() => {}); };
+  es.onopen = () => { $("live").classList.remove("off"); $("live-text").textContent = "Live · testnet"; };
+  es.onerror = () => { $("live").classList.add("off"); $("live-text").textContent = "Reconnecting…"; };
+
+  window.addEventListener("resize", drawWires);
+  drawWires();
   refreshBalances();
   setInterval(refreshBalances, 10000);
+  setInterval(tick, 500);
 </script>
 </body>
 </html>
