@@ -16,11 +16,12 @@ import {
   type ArbiterReceipt,
   type CreateOrderInput,
 } from "x402-auth-capture-xrpl";
-import { PORTS, emit, txLink, wallet, wsUrl } from "@demo/common";
-import { judge } from "./judge.js";
+import { PORTS, URLS, emit, txLink, wallet, wsUrl } from "@demo/common";
+import { judgeFromEnv } from "./judge.js";
 
 /**
- * Demo arbiter: implements the Arbiter HTTP API (AGENTS.md section 7.2) that Misa will implement.
+ * Demo arbiter: implements the Arbiter HTTP API (AGENTS.md section 7.2). It holds the money side
+ * (preimage, funding check, EscrowFinish); Misa's checks against the seller's listing decide the verdict (judge.ts).
  * Orders live in memory. Each holds a fresh 32-byte preimage that never leaves this process.
  */
 
@@ -29,6 +30,7 @@ const LOCK_SECONDS = Number(process.env.ARBITER_LOCK_SECONDS ?? 150);
 const FINISH_MARGIN_SECONDS = 20;
 
 const arbiterWallet = wallet("arbiter");
+const judging = judgeFromEnv(process.env.SELLER_OPENAPI_URL ?? `${URLS.seller}/openapi.json`);
 const client = new Client(wsUrl());
 client.on("error", () => {});
 
@@ -191,7 +193,7 @@ app.post("/orders/:id/delivery", async (req, res) => {
     if (!order.escrow) throw new HttpError(409, "order is not funded yet");
 
     emit({ type: "delivered", source: "arbiter", orderId: order.orderId, detail: { submittedBy, bytes: body.length, deliveryHash: check.deliveryHash } });
-    const judgement = judge(body, order.terms, Math.floor(Date.now() / 1000));
+    const judgement = await judging.judge(body, order.terms);
     console.log(`order ${order.orderId}: ${judgement.verdict}${"reason" in judgement ? ` (${judgement.reason})` : ""}`);
     emit({ type: "verdict", source: "arbiter", orderId: order.orderId, detail: { ...judgement } });
 
@@ -242,5 +244,5 @@ app.use((err: Error, _req: express.Request, res: express.Response, _next: expres
 
 await client.connect();
 app.listen(PORTS.arbiter, () => {
-  console.log(`arbiter stub on http://localhost:${PORTS.arbiter} as ${arbiterWallet.classicAddress} (lock ${LOCK_SECONDS}s)`);
+  console.log(`arbiter stub on http://localhost:${PORTS.arbiter} as ${arbiterWallet.classicAddress} (lock ${LOCK_SECONDS}s, judged by ${judging.name === "misa" ? `Misa at ${judging.url}` : `the local stand-in reading ${judging.url}; set MISA_CHECKS_URL to use Misa`})`);
 });

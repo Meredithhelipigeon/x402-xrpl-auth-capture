@@ -44,7 +44,7 @@ The facilitator holds no keys and no funds.
 | --- | --- |
 | `packages/auth-capture-xrpl` | The mechanism package for `@x402/core`: client, server and facilitator schemes, the Arbiter interface and HTTP client, signed receipts and deliveries, and lifecycle helpers including the `ReclaimWatcher`. |
 | `apps/facilitator` | `/supported`, `/verify`, `/settle`, plus the watcher that refunds expired escrows. |
-| `apps/arbiter-stub` | The Arbiter HTTP API. It judges quotes and finishes on PASS. Misa replaces it by implementing the same API. |
+| `apps/arbiter-stub` | The Arbiter HTTP API. It holds the preimage and finishes on PASS. Misa's checks decide the verdict against the seller's Misa listing (`POST /x/{slug}/checks`, set `MISA_CHECKS_URL`); without it, a local stand-in runs the same body checks. |
 | `apps/seller` | A paid `GET /quote`; `?mode=cheat` returns a bad quote. |
 | `apps/buyer-agent` | Claude with one tool, `buy_quote`. |
 | `apps/demo` | A live timeline with explorer links and honest/cheat buttons. |
@@ -67,6 +67,8 @@ pnpm facilitator
 pnpm arbiter
 pnpm seller
 ```
+
+The arbiter judges each quote against the seller's published response schema (`GET /openapi.json` on the seller). The order's terms only name the seller's Misa listing and action (`{ slug, operation_id }`), so nobody can swap the schema per order. Set `MISA_CHECKS_URL=https://api.trymisa.com` in `.env` to have Misa check against the schema it froze when the seller listed; leave it unset and the local stand-in reads the seller's `/openapi.json` itself.
 
 Then run any of these:
 
