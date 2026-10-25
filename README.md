@@ -43,7 +43,7 @@ The facilitator holds no keys and no funds.
 | Path | What it is |
 | --- | --- |
 | `packages/auth-capture-xrpl` | The mechanism package for `@x402/core`: client, server and facilitator schemes, the Arbiter interface and HTTP client, signed receipts and deliveries, and lifecycle helpers including the `ReclaimWatcher`. |
-| `apps/facilitator` | `/supported`, `/verify`, `/settle`, plus the watcher that refunds expired escrows. |
+| `apps/facilitator` | `/supported`, `/verify`, `/settle`, `/capture` (submits the EscrowFinish for an arbiter that holds the fulfillment but no XRPL key, such as Misa), plus the watcher that refunds expired escrows. |
 | `apps/arbiter-stub` | The Arbiter HTTP API. It holds the preimage and finishes on PASS. Misa's checks decide the verdict against the seller's Misa listing (`POST /x/{slug}/checks`, set `MISA_CHECKS_URL`); without it, a local stand-in runs the same body checks. |
 | `apps/seller` | A paid `GET /quote`; `?mode=cheat` returns a bad quote. |
 | `apps/buyer-agent` | Claude with one tool, `buy_quote`. |
