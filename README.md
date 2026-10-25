@@ -7,6 +7,24 @@ This repo is an XRPL network binding of the x402 [`auth-capture`](https://github
 - **Spec:** [`specs/scheme_auth_capture_xrpl.md`](./specs/scheme_auth_capture_xrpl.md). It answers the scheme's 8 binding requirements.
 - **Design and milestones:** [`AGENTS.md`](./AGENTS.md). **Decisions:** [`DECISIONS.md`](./DECISIONS.md). **Pitch:** [`docs/pitch.md`](./docs/pitch.md).
 
+## What this repo contributes
+
+We built the XRP Ledger binding of x402's `auth-capture` scheme: a spec, an SDK for buyers, sellers and facilitators, and a live facilitator. With them, an agent's payment waits in a native XRPL escrow until a verifier such as Misa says the data checks out.
+
+| Contribution | What it is | Where | Who uses it | Status (2026-10-25) |
+| --- | --- | --- | --- | --- |
+| XRPL binding spec | How `auth-capture` (lock first, pay after verification) works on the XRP Ledger. Answers all 8 requirements every binding must specify. | [`specs/scheme_auth_capture_xrpl.md`](./specs/scheme_auth_capture_xrpl.md) | Anyone implementing XRP escrow payments, in any language | Draft; not yet proposed to [x402-foundation/x402](https://github.com/x402-foundation/x402) |
+| Buyer client | Signs an `EscrowCreate` that locks the price. Refuses untrusted arbiters, lock windows that are too short or too long, non-XRP assets, and balances that can't cover the payment. | [`client/`](./packages/auth-capture-xrpl/src/client/) | AI agents paying in XRP, including to Misa | Working on testnet |
+| Facilitator scheme | Checks the buyer's signed escrow against 13 rules, submits it, waits for validation, and blocks double settlement. | [`facilitator/`](./packages/auth-capture-xrpl/src/facilitator/) | Facilitator operators | Working on testnet |
+| Seller scheme | Issues the 402 with a fresh arbiter order, locks the escrow before the handler runs, and records funding with the arbiter. | [`server/`](./packages/auth-capture-xrpl/src/server/) | Sellers charging in XRP directly, without Misa | Working on testnet |
+| Escrow lifecycle | Builders for release (`EscrowFinish`) and refund (`EscrowCancel`), escrow state lookups, and a watcher that refunds expired escrows automatically. | [`lifecycle/`](./packages/auth-capture-xrpl/src/lifecycle/) | Arbiters and facilitators | Working on testnet |
+| Arbiter interface and signed receipts | A pluggable judge API (create order, record funding, submit delivery), signed verdicts, and seller-signed deliveries. | [`arbiter.ts`](./packages/auth-capture-xrpl/src/arbiter.ts), [`delivery.ts`](./packages/auth-capture-xrpl/src/delivery.ts) | Any verifier, Misa first | Working on testnet |
+| Live facilitator | `/verify`, `/settle` and `/capture`, plus the refund watcher. It holds no funds and makes no decisions. | [`apps/facilitator`](./apps/facilitator), deployed at `https://x402-xrpl-auth-capture.onrender.com` | Misa's `xrplEscrow` payment adapter | Live, testnet only |
+| End-to-end proof | Honest and cheating sellers on testnet, with balances checked to the drop: the seller gets exactly the price on PASS, and the buyer loses only the 12-drop network fee on FAIL. | [`scripts/e2e.ts`](./scripts/e2e.ts), [`scripts/raw-escrow.ts`](./scripts/raw-escrow.ts) | Reviewers and judges | Passed 3 rounds in a row from fresh wallets |
+| Demo | A Claude buyer agent and a live dashboard showing the money move into escrow, then to the seller or back to the buyer. | [`apps/buyer-agent`](./apps/buyer-agent), [`apps/demo`](./apps/demo) | Hackathon presentation | Working; the agent's own run is pending an API key |
+
+Built on [`@x402/core`](https://www.npmjs.com/package/@x402/core) and XRPL Japan's [`@xrpljapan/x402-xrpl`](https://github.com/xrpljapan/x402-xrpl) (Apache-2.0), whose `exact` XRPL binding this one follows. The package isn't on npm yet and this repository is still private.
+
 ## How it works
 
 ```mermaid
