@@ -8,6 +8,8 @@
   },
   "dependencies": {
     "@demo/common": "workspace:*",
+    "ajv": "^8.20.0",
+    "ajv-formats": "^3.0.1",
     "express": "^5.3.0",
     "x402-auth-capture-xrpl": "workspace:*",
     "xrpl": "^5.3.0"

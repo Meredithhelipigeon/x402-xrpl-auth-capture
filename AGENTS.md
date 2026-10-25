@@ -291,7 +291,7 @@ HTTP API (Misa will implement the same API later):
 - `GET /orders/:id` → order + status (`created | funded | passed | failed | finished | reclaimed`).
 - `POST /orders/:id/funding` → record `owner`, `offerSequence`, `txHash`.
 - `POST /orders/:id/delivery` → verify the seller signature against `payTo`; judge; on PASS submit `EscrowFinish` from the arbiter wallet, wait for validation; return a signed `ArbiterReceipt`.
-- Judging rule for the demo: the body is JSON with the promised fields (e.g. `{ symbol, price, asOf }`), `price > 0`, and `asOf` within N seconds. Keep the rule in one function, so Misa's real verification can swap in.
+- Judging rule: the order's `terms` are the seller's published promise in Misa's `AnswerPromise` shape (`{ version: 1, response_schema, max_latency_ms }`). Misa's `POST /v1/checks` judges the body against it when `MISA_CHECKS_URL` is set; otherwise a local stand-in runs the same body checks (JSON, matches the schema, not empty). The arbiter keeps the preimage and the escrow either way; anything but a verdict from Misa is a FAIL.
 - If two different seller-signed bodies arrive for the same order → FAIL (seller equivocation).
 
 ### 7.3 `apps/seller`

@@ -44,7 +44,7 @@ The facilitator holds no keys and no funds.
 | --- | --- |
 | `packages/auth-capture-xrpl` | The mechanism package for `@x402/core`: client, server and facilitator schemes, the Arbiter interface and HTTP client, signed receipts and deliveries, and lifecycle helpers including the `ReclaimWatcher`. |
 | `apps/facilitator` | `/supported`, `/verify`, `/settle`, plus the watcher that refunds expired escrows. |
-| `apps/arbiter-stub` | The Arbiter HTTP API. It judges quotes and finishes on PASS. Misa replaces it by implementing the same API. |
+| `apps/arbiter-stub` | The Arbiter HTTP API. It holds the preimage and finishes on PASS. Misa's checks decide the verdict (`POST /v1/checks`, set `MISA_CHECKS_URL`); without it, a local stand-in runs the same body checks. |
 | `apps/seller` | A paid `GET /quote`; `?mode=cheat` returns a bad quote. |
 | `apps/buyer-agent` | Claude with one tool, `buy_quote`. |
 | `apps/demo` | A live timeline with explorer links and honest/cheat buttons. |
@@ -67,6 +67,8 @@ pnpm facilitator
 pnpm arbiter
 pnpm seller
 ```
+
+The arbiter judges each quote against the seller's published response schema (`GET /openapi.json` on the seller). Set `MISA_CHECKS_URL=https://api.trymisa.com` in `.env` to have Misa run the checks; leave it unset to use the local stand-in.
 
 Then run any of these:
 
