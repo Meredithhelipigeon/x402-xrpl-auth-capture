@@ -28,7 +28,7 @@ export interface AuthCaptureXrplServerOptions {
   arbiter: Arbiter;
   /** The arbiter's classic address, advertised as `extra.captureAuthorizer`. */
   captureAuthorizer: string;
-  /** Order terms the arbiter judges against, per 402 (e.g. the seller's published response schema). */
+  /** Order terms the arbiter judges against, per 402 (e.g. which listed action was bought, so the arbiter knows the seller's promise). */
   terms?: (requirements: PaymentRequirements, resourceUrl: string) => unknown;
   /** Called when the arbiter can't be told about a funded escrow. Default logs. */
   onFundingError?: (err: unknown, orderId: string) => void;

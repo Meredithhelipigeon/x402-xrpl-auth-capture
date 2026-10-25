@@ -16,12 +16,12 @@ import {
   type ArbiterReceipt,
   type CreateOrderInput,
 } from "x402-auth-capture-xrpl";
-import { PORTS, emit, txLink, wallet, wsUrl } from "@demo/common";
+import { PORTS, URLS, emit, txLink, wallet, wsUrl } from "@demo/common";
 import { judgeFromEnv } from "./judge.js";
 
 /**
  * Demo arbiter: implements the Arbiter HTTP API (AGENTS.md section 7.2). It holds the money side
- * (preimage, funding check, EscrowFinish); Misa's checks decide the verdict (judge.ts).
+ * (preimage, funding check, EscrowFinish); Misa's checks against the seller's listing decide the verdict (judge.ts).
  * Orders live in memory. Each holds a fresh 32-byte preimage that never leaves this process.
  */
 
@@ -30,7 +30,7 @@ const LOCK_SECONDS = Number(process.env.ARBITER_LOCK_SECONDS ?? 150);
 const FINISH_MARGIN_SECONDS = 20;
 
 const arbiterWallet = wallet("arbiter");
-const judging = judgeFromEnv();
+const judging = judgeFromEnv(process.env.SELLER_OPENAPI_URL ?? `${URLS.seller}/openapi.json`);
 const client = new Client(wsUrl());
 client.on("error", () => {});
 
@@ -244,5 +244,5 @@ app.use((err: Error, _req: express.Request, res: express.Response, _next: expres
 
 await client.connect();
 app.listen(PORTS.arbiter, () => {
-  console.log(`arbiter stub on http://localhost:${PORTS.arbiter} as ${arbiterWallet.classicAddress} (lock ${LOCK_SECONDS}s, judged by ${judging.name === "misa" ? `Misa at ${judging.url}` : "the local stand-in; set MISA_CHECKS_URL to use Misa"})`);
+  console.log(`arbiter stub on http://localhost:${PORTS.arbiter} as ${arbiterWallet.classicAddress} (lock ${LOCK_SECONDS}s, judged by ${judging.name === "misa" ? `Misa at ${judging.url}` : `the local stand-in reading ${judging.url}; set MISA_CHECKS_URL to use Misa`})`);
 });

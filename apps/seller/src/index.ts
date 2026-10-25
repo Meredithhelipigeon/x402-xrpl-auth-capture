@@ -20,6 +20,8 @@ import { NETWORK, PORTS, URLS, address, emit, wallet } from "@demo/common";
 const PRICE_DROPS = process.env.SELLER_PRICE_DROPS ?? "1000000";
 const sellerWallet = wallet("seller");
 const arbiter = new HttpArbiterClient(URLS.arbiter);
+/** This API's listing on Misa, imported from GET /openapi.json below. */
+const MISA_LISTING_SLUG = process.env.MISA_LISTING_SLUG ?? "hold-my-drops-quotes";
 
 /** What every quote promises: the 200 response schema published in GET /openapi.json. */
 const QUOTE_SCHEMA = {
@@ -53,8 +55,8 @@ const OPENAPI = {
 const scheme = new AuthCaptureXrplServerScheme({
   arbiter,
   captureAuthorizer: address("arbiter"),
-  // The arbiter judges against the seller's published promise, in Misa's AnswerPromise shape.
-  terms: () => ({ version: 1, response_schema: QUOTE_SCHEMA, max_latency_ms: null }),
+  // Terms name the Misa listing and action; the promise is the schema Misa froze when the seller listed it.
+  terms: () => ({ slug: MISA_LISTING_SLUG, operation_id: "getQuote" }),
 });
 
 const resourceServer = new x402ResourceServer(new HTTPFacilitatorClient({ url: URLS.facilitator })).register(NETWORK, scheme);
