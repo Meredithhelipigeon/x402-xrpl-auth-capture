@@ -34,46 +34,35 @@
       var(--base);
     color: var(--ink); font: 15px/1.55 var(--sans); min-height: 100vh;
   }
-  main { max-width: 1200px; margin: 0 auto; padding: 0 16px 72px; overflow-wrap: anywhere; }
+  main.dash { max-width: 1440px; margin: 0 auto; padding: 16px; min-height: 100vh; display: flex; overflow-wrap: anywhere; }
+  main.dash > .grid { flex: 1; }
   a { color: var(--secondary); text-decoration: none; }
   a:hover { text-decoration: underline; }
   code, .mono { font-family: var(--mono); }
 
-  /* nav */
-  nav { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 16px 0; border-bottom: 1px solid var(--line); margin-bottom: 26px; }
-  .wordmark { font: 700 24px/1 var(--display); letter-spacing: -0.02em; color: var(--ink); }
-  .wordmark small { font: 500 12px var(--mono); color: var(--muted); letter-spacing: .08em; text-transform: uppercase; margin-left: 10px; }
   .chip { display: inline-flex; align-items: center; gap: 8px; font: 500 11px var(--mono); letter-spacing: .12em; text-transform: uppercase; color: var(--secondary); padding: 6px 12px; border: 1px solid var(--line); border-radius: 999px; background: color-mix(in oklab, var(--base) 70%, transparent); }
   .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--pass); box-shadow: 0 0 10px var(--pass); animation: blink 1.8s ease-in-out infinite; }
   .chip.off { color: var(--fail); } .chip.off .dot { background: var(--fail); box-shadow: none; animation: none; }
   @keyframes blink { 50% { opacity: .35; } }
 
-  /* hero */
-  .hero { margin-bottom: 22px; }
-  h1 { font: 800 clamp(32px, 4.4vw, 52px)/1.02 var(--display); letter-spacing: -0.035em; margin: 14px 0 10px; }
-  h1 .hl { background: linear-gradient(90deg, var(--primary), var(--secondary)); -webkit-background-clip: text; background-clip: text; color: transparent; }
-  .lede { color: var(--muted); max-width: 640px; margin: 0; font-size: 16px; }
 
   .card { background: var(--card); border: 1px solid var(--line); border-radius: var(--radius); }
 
   /* controls */
-  .controls { display: flex; flex-wrap: wrap; gap: 12px; margin-bottom: 18px; align-items: stretch; }
-  button.run { font: 600 15px var(--sans); border-radius: 10px; padding: 12px 18px; cursor: pointer; border: 1px solid transparent; text-align: left; transition: transform .12s ease, box-shadow .2s ease, background .2s; }
+  .controls { display: flex; flex-wrap: wrap; gap: 10px; }
+  button.run { font: 600 14px var(--sans); border-radius: 10px; padding: 10px 16px; cursor: pointer; border: 1px solid transparent; text-align: left; transition: transform .12s ease, box-shadow .2s ease, background .2s; }
   button.run small { display: block; font: 400 12px var(--mono); opacity: .75; margin-top: 2px; }
   button.run:active { transform: translateY(1px); }
   button.run.honest { background: var(--primary); color: #fff; box-shadow: 0 0 30px -4px var(--primary); }
   button.run.honest:hover { box-shadow: 0 0 40px -2px var(--primary); }
   button.run.cheat { background: transparent; color: var(--ink); border-color: var(--line); }
   button.run.cheat:hover { border-color: var(--fail); color: var(--fail); }
-  .stats { margin-left: auto; display: flex; gap: 10px; flex-wrap: wrap; }
-  .stat { padding: 10px 14px; min-width: 110px; flex: 1; }
   .k { font: 500 10.5px var(--mono); letter-spacing: .12em; text-transform: uppercase; color: var(--muted); }
-  .stat .v { font: 700 24px/1.2 var(--display); font-variant-numeric: tabular-nums; }
 
   /* stage */
-  .grid { display: grid; grid-template-columns: minmax(0, 1fr) 340px; gap: 16px; align-items: start; }
-  .stage { position: relative; padding: 18px 20px; overflow: hidden; }
-  .stage-head { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; margin-bottom: 14px; flex-wrap: wrap; }
+  .grid { display: grid; grid-template-columns: minmax(0, 1fr) 360px; gap: 16px; align-items: stretch; }
+  .stage { position: relative; padding: 18px 20px; overflow: hidden; display: flex; flex-direction: column; }
+  .stage-head { display: flex; justify-content: space-between; align-items: center; gap: 12px; margin-bottom: 18px; flex-wrap: wrap; }
   .stage-head .caption { font: 700 18px var(--display); letter-spacing: -0.01em; }
   .flow { position: relative; display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.15fr) minmax(0, 1fr); grid-template-rows: auto auto; gap: 16px 18px; align-items: center; }
   .node { position: relative; z-index: 2; background: var(--card-2); border: 1px solid var(--line); border-radius: var(--radius); padding: 16px 12px 14px; text-align: center; transition: border-color .3s, box-shadow .3s, transform .3s; }
@@ -148,7 +137,10 @@
   @keyframes spin { to { transform: rotate(360deg); } }
 
   /* activity log */
-  .log { padding: 14px; max-height: 600px; overflow: auto; }
+  .log { padding: 14px; max-height: calc(100vh - 32px); overflow: auto; }
+  .log-head { display: flex; justify-content: space-between; align-items: center; gap: 8px; margin: 2px 4px 12px; }
+  .log-head h3 { margin: 0; }
+  .log-empty { color: var(--faint); font-size: 13px; margin: 8px 4px; }
   .log h3 { margin: 2px 4px 12px; }
   .log ol { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
   .log li { display: grid; grid-template-columns: 64px minmax(0, 1fr); gap: 10px; align-items: start; padding: 10px; border-radius: 10px; background: var(--card-2); border: 1px solid var(--line); font-size: 13px; animation: slide .35s ease; }
@@ -162,83 +154,27 @@
   .tag.honest { color: var(--pass); border-color: color-mix(in oklab, var(--pass) 40%, transparent); }
   .tag.cheat { color: var(--fail); border-color: color-mix(in oklab, var(--fail) 40%, transparent); }
 
-  /* sections */
-  .section-k { margin: 40px 2px 12px; }
-  .compare { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); overflow: hidden; }
-  .compare .col { padding: 20px 22px; }
-  .compare .col.bad { border-right: 1px solid var(--line); }
-  .compare .col-h { font: 700 19px var(--display); letter-spacing: -0.01em; margin-bottom: 10px; }
-  .compare .col-h code { font: 500 14px var(--mono); }
-  .compare .bad .col-h { color: var(--fail); } .compare .good .col-h { color: var(--pass); }
-  .compare ul { margin: 0 0 16px; padding-left: 18px; display: grid; gap: 7px; font-size: 14px; color: color-mix(in oklab, var(--ink) 82%, var(--base)); }
-  .compare ul b { color: var(--ink); }
-  .compare .example { border-radius: 10px; padding: 12px 14px; font-size: 14px; border: 1px solid var(--line); }
-  .compare .bad .example { background: color-mix(in oklab, var(--fail) 8%, transparent); border-color: color-mix(in oklab, var(--fail) 30%, transparent); }
-  .compare .good .example { background: color-mix(in oklab, var(--pass) 8%, transparent); border-color: color-mix(in oklab, var(--pass) 30%, transparent); }
-  .compare .ex-k { margin-bottom: 6px; }
-  .compare .ex-body { display: block; font: 400 12px var(--mono); color: var(--accent); margin-bottom: 8px; }
-  .compare .ex-verdict { font-weight: 600; margin-bottom: 8px; }
-  .compare .ex-cost b { font: 700 19px var(--display); }
-  .compare .bad .ex-cost b { color: var(--fail); } .compare .good .ex-cost b { color: var(--pass); }
-  .compare .src { font: 400 11px var(--mono); color: var(--faint); margin-top: 10px; }
 
-  .orders { display: grid; gap: 10px; }
-  .order { padding: 14px 16px; }
-  .order header { display: flex; justify-content: space-between; gap: 10px; align-items: center; margin-bottom: 12px; flex-wrap: wrap; }
-  .order header strong { font: 700 15px var(--display); }
-  .order header code { color: var(--faint); font-size: 12px; }
-  .pill { font: 500 10.5px var(--mono); letter-spacing: .1em; text-transform: uppercase; padding: 4px 10px; border-radius: 999px; border: 1px solid color-mix(in oklab, var(--accent) 40%, transparent); color: var(--accent); }
-  .pill.pass { color: var(--pass); border-color: color-mix(in oklab, var(--pass) 40%, transparent); }
-  .pill.fail { color: var(--fail); border-color: color-mix(in oklab, var(--fail) 40%, transparent); }
-  ol.steps { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 10px; }
-  ol.steps li { border-top: 2px solid var(--line); padding-top: 8px; color: var(--faint); font-size: 13px; }
-  ol.steps li.done { border-color: var(--primary); color: var(--ink); }
-  ol.steps li.pass { border-color: var(--pass); } ol.steps li.fail { border-color: var(--fail); }
-  ol.steps li.now { border-color: var(--accent); }
-  ol.steps .t { font: 500 10.5px var(--mono); letter-spacing: .1em; text-transform: uppercase; color: var(--muted); display: block; margin-bottom: 2px; }
-  ol.steps .x { display: block; }
-  .empty { color: var(--muted); border: 1px dashed var(--line); border-radius: var(--radius); padding: 26px; text-align: center; }
 
-  @media (max-width: 900px) { .grid { grid-template-columns: minmax(0, 1fr); } .log { max-height: 320px; } .stats { margin-left: 0; } }
-  @media (max-width: 760px) { .compare { grid-template-columns: minmax(0, 1fr); } .compare .col.bad { border-right: 0; border-bottom: 1px solid var(--line); } }
+  @media (max-width: 900px) { .grid { grid-template-columns: minmax(0, 1fr); } .log { max-height: 360px; } main.dash { display: block; } }
   @media (max-width: 620px) {
     .flow { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
     .arbiter { grid-column: 1 / -1; } .vault { grid-column: 1 / -1; grid-row: 2; } .buyer { grid-column: 1; grid-row: 3; } .seller { grid-column: 2; grid-row: 3; }
-    ol.steps { grid-template-columns: minmax(0, 1fr); }
-    .stats { width: 100%; } .stat { min-width: 0; } button.run { flex: 1 1 100%; }
-    .wordmark small { display: none; }
+    button.run { flex: 1 1 100%; }
   }
   @media (prefers-reduced-motion: reduce) { .token { display: none; } * { animation: none !important; transition: none !important; } }
 </style>
 </head>
 <body>
-<main>
-  <nav>
-    <div class="wordmark">misa<small>verify-then-pay · x402 on XRPL</small></div>
-    <span class="chip" id="live"><span class="dot"></span><span id="live-text">Connecting</span></span>
-  </nav>
-
-  <section class="hero">
-    <span class="chip">Agent-to-agent payments</span>
-    <h1>Agents pay only for<br><span class="hl">data that checks out.</span></h1>
-    <p class="lede">The buyer agent's money waits in a native XRPL escrow. Misa checks what the seller agent delivered and releases the money only on PASS. Bad data means the escrow refunds itself. No smart contract, and Misa never holds the funds.</p>
-  </section>
-
-  <div class="controls">
-    <button class="run honest" data-mode="honest">Buy from an honest seller agent<small>real quote, signed</small></button>
-    <button class="run cheat" data-mode="cheat">Buy from a cheating seller agent<small>garbage, still signed</small></button>
-    <div class="stats">
-      <div class="card stat"><div class="k">Purchases</div><div class="v" id="s-total">0</div></div>
-      <div class="card stat"><div class="k">Seller paid</div><div class="v" id="s-paid" style="color:var(--pass)">0</div></div>
-      <div class="card stat"><div class="k">Buyer refunded</div><div class="v" id="s-refunded" style="color:var(--fail)">0</div></div>
-    </div>
-  </div>
-
+<main class="dash">
   <div class="grid">
     <section class="card stage" id="stage">
       <div class="stage-head">
-        <span class="k">Live on XRPL testnet</span>
-        <div class="caption" id="caption">Press a button to start a purchase</div>
+        <div class="controls">
+          <button class="run honest" data-mode="honest">Buy from honest seller</button>
+          <button class="run cheat" data-mode="cheat">Buy from cheating seller</button>
+        </div>
+        <div class="caption" id="caption">Press a button to start</div>
       </div>
       <div class="flow" id="flow">
         <svg class="wires" id="wires" aria-hidden="true"></svg>
@@ -281,44 +217,13 @@
     </section>
 
     <aside class="card log">
-      <h3 class="k">What just happened</h3>
+      <div class="log-head"><h3 class="k">Activity</h3><span class="chip" id="live"><span class="dot"></span><span id="live-text">Connecting</span></span></div>
+      <p class="log-empty" id="log-empty">Each step of a purchase shows up here, with links to the testnet explorer.</p>
       <ol id="log"></ol>
     </aside>
   </div>
-
-  <div class="k section-k">The x402 problem Misa fixes</div>
-  <section class="card compare">
-    <div class="col bad">
-      <div class="col-h">x402 <code>exact</code> today: pay first</div>
-      <ul>
-        <li><b>Bad data, paid anyway.</b> Any successful response settles the payment before the buyer agent can look at it.</li>
-        <li><b>"Success" is all the seller has to say.</b> x402 checks that a payment is valid, not that the data is.</li>
-        <li><b>No recourse.</b> No refund operation, no chargeback, no human in the loop.</li>
-      </ul>
-      <div class="example">
-        <div class="k ex-k">Example: the cheating seller's quote</div>
-        <code class="ex-body" id="cmp-body">{"symbol":"XRP","price":-1,"asOf":"2019-01-01T00:00:00Z"}</code>
-        <div class="ex-cost">Buyer agent loses <b id="cmp-exact">1 XRP + fee</b>, permanently.</div>
-      </div>
-      <div class="src">In one independent test, 4 of 85 paid x402 calls returned nothing useful: an empty list, a partial snapshot, error messages. Source: dev.to/alexar76</div>
-    </div>
-    <div class="col good">
-      <div class="col-h">With Misa: verify, then pay</div>
-      <ul>
-        <li><b>Same 402 flow.</b> One scheme registered in <code>@x402/express</code> and <code>@x402/fetch</code>.</li>
-        <li><b>Money waits in a native escrow</b> that only pays the seller with Misa's key.</li>
-        <li><b>Bad data</b> means no release, and the escrow refunds itself at the deadline.</li>
-      </ul>
-      <div class="example">
-        <div class="k ex-k" id="cmp-status">Run the cheating seller to see it live</div>
-        <div class="ex-verdict" id="cmp-verdict">Misa: FAIL (price -1 is not a positive number)</div>
-        <div class="ex-cost">Buyer agent loses <b id="cmp-ours">only the 12-drop network fee</b>. <span id="cmp-link"></span></div>
-      </div>
-    </div>
-  </section>
-
-  <div class="k section-k">Orders</div>
-  <div class="orders" id="orders"><div class="empty" id="empty">Each purchase appears here with links to its transactions on the testnet explorer.</div></div>
+  <!-- Order state lives here; the dashboard shows the latest order in the diagram. -->
+  <div id="orders" hidden></div>
 </main>
 
 <script>
@@ -382,6 +287,7 @@
     body.append(el("div", "when", new Date(at || Date.now()).toLocaleTimeString()));
     const tone = /PASS|PAID|RECEIPT/.test(icon) ? "pass" : /FAIL|ERROR/.test(icon) ? "fail" : icon === "REFUND" ? "warn" : "";
     li.append(el("span", `tag ${tone}`, icon), body);
+    $("log-empty")?.remove();
     $("log").prepend(li);
     while ($("log").children.length > 40) $("log").lastChild.remove();
   }
@@ -405,7 +311,6 @@
     $("orders").prepend(card);
     const o = { id, card, tag, pill, cells, amount: null, deadline: null, verdict: null, closed: null, mode: null };
     orders.set(id, o);
-    updateStats();
     return o;
   }
   function fill(o, k, content, tone) {
@@ -415,12 +320,6 @@
   function setMode(o, mode) {
     if (!mode || o.mode) return;
     o.mode = mode; o.tag.textContent = mode === "cheat" ? "cheating seller" : "honest seller"; o.tag.className = `tag ${mode}`;
-  }
-  function updateStats() {
-    const all = [...orders.values()];
-    $("s-total").textContent = all.length;
-    $("s-paid").textContent = all.filter((o) => o.closed === "paid").length;
-    $("s-refunded").textContent = all.filter((o) => o.closed === "refunded").length;
   }
 
   /* ---------- stage ---------- */
@@ -497,8 +396,6 @@
     if (e.type === "run_started") {
       if (live) {
         resetStage();
-        // Keep the flow diagram and the narration on screen together while a purchase plays.
-        $("stage").scrollIntoView({ behavior: "smooth", block: "start" });
         narrate("Step 1 of 5 · Ask", d.mode === "cheat" ? "Buying from the cheating seller" : "Buying from the honest seller",
           "The buyer agent calls the seller's paid API: GET /quote?symbol=XRP", true);
         flash($("n-buyer"), "glow"); pulseWire("w-sb", 2500);
@@ -573,7 +470,7 @@
         o.verdict = d.verdict;
         const pass = d.verdict === "PASS";
         fill(o, "judged", pass ? "PASS ✓" : `FAIL: ${d.reason || ""}`, pass ? "pass" : "fail");
-        if (!pass) { o.pill.textContent = "rejected · refund pending"; o.pill.className = "pill fail"; o.reason = d.reason; compare(o); }
+        if (!pass) { o.pill.textContent = "rejected · refund pending"; o.pill.className = "pill fail"; o.reason = d.reason; }
         log(pass ? "PASS" : "FAIL", pass ? "Misa: <b>PASS</b>. The data checks out." : `Misa: <b>FAIL</b>. ${esc(d.reason || "")}`, e.at);
         if (focused) {
           if (show) {
@@ -613,14 +510,12 @@
           setVault(0, "Escrow closed", "paid to the seller"); flash($("n-seller"), "good", 3000);
           if (show) { narrate("Done", "Seller paid ✓, for verified data only", "Without a PASS from Misa, this money would have gone back to the buyer."); refreshBalances(); }
         }
-        updateStats();
         break;
       }
       case "escrow_reclaimed": {
         o.closed = "refunded";
         fill(o, "closed", [document.createTextNode("Buyer refunded · "), txLink(e.txHash, "EscrowCancel ↗")], "fail");
         o.pill.textContent = "buyer refunded"; o.pill.className = "pill fail";
-        compare(o);
         log("REFUND", `Deadline passed: escrow returned to the buyer. ${linkHtml(e.txHash, "EscrowCancel")}`, e.at);
         if (focused) {
           if (show) {
@@ -632,27 +527,11 @@
           setVault(0, "Escrow closed", "refunded to the buyer"); flash($("n-buyer"), "good", 3000);
           if (show) { narrate("Done", "Buyer refunded ✓: the cheat earned nothing", "The agent's only cost was the 12-drop network fee. Under pay-first x402 it would have lost the full price."); refreshBalances(); }
         }
-        updateStats();
         break;
       }
       case "receipt":
         if (d.receiptChecked) log("RECEIPT", "Buyer verified Misa's signed receipt.", e.at);
         break;
-    }
-  }
-
-  /* ---------- pay-first vs verify-then-pay, from the latest rejected order ---------- */
-  function compare(o) {
-    if (o.body) $("cmp-body").textContent = JSON.stringify(o.body);
-    if (o.amount) $("cmp-exact").textContent = `${xrp(o.amount)} + fee`;
-    $("cmp-verdict").textContent = `Misa: FAIL (${o.reason || "rejected"})`;
-    if (o.closed === "refunded") {
-      $("cmp-status").textContent = `Order ${o.id}: refunded`;
-      const tx = o.cells.closed.querySelector("a");
-      $("cmp-link").replaceChildren(...(tx ? [document.createTextNode("Proof: "), txLink(tx.href.split("/").pop(), "EscrowCancel ↗")] : []));
-    } else {
-      $("cmp-status").textContent = `Order ${o.id}: refund pending until the deadline`;
-      $("cmp-link").replaceChildren();
     }
   }
 
@@ -689,7 +568,7 @@
     setTimeout(() => { chain = chain.then(() => { live = true; }); }, 800);
   });
   es.onmessage = (m) => { const e = JSON.parse(m.data); chain = chain.then(() => onEvent(e)).catch(() => {}); };
-  es.onopen = () => { $("live").classList.remove("off"); $("live-text").textContent = "Live · XRPL testnet"; };
+  es.onopen = () => { $("live").classList.remove("off"); $("live-text").textContent = "Live · testnet"; };
   es.onerror = () => { $("live").classList.add("off"); $("live-text").textContent = "Reconnecting…"; };
 
   window.addEventListener("resize", drawWires);
