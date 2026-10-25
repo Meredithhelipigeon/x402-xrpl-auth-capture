@@ -1,8 +1,28 @@
 {
   "name": "x402-auth-capture-xrpl",
-  "version": "0.0.0",
-  "private": true,
-  "description": "XRPL network binding of the x402 auth-capture scheme (native Escrow hold, arbiter-held capture)",
+  "version": "0.1.0",
+  "description": "XRP Ledger binding of the x402 auth-capture scheme: verify-then-pay with native XRPL escrow (buyer client, seller server and facilitator schemes)",
+  "keywords": [
+    "x402",
+    "xrpl",
+    "xrp",
+    "xrp-ledger",
+    "escrow",
+    "auth-capture",
+    "payments",
+    "ai-agents",
+    "http-402",
+    "micropayments"
+  ],
+  "homepage": "https://github.com/Meredithhelipigeon/x402-xrpl-auth-capture#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Meredithhelipigeon/x402-xrpl-auth-capture.git",
+    "directory": "packages/auth-capture-xrpl"
+  },
+  "bugs": {
+    "url": "https://github.com/Meredithhelipigeon/x402-xrpl-auth-capture/issues"
+  },
   "license": "Apache-2.0",
   "type": "module",
   "sideEffects": false,
@@ -23,7 +43,11 @@
     }
   },
   "files": [
-    "dist"
+    "dist",
+    "src",
+    "README.md",
+    "LICENSE",
+    "NOTICE"
   ],
   "engines": {
     "node": ">=22"
@@ -32,7 +56,8 @@
     "build": "tsup",
     "test": "vitest run",
     "test:watch": "vitest",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "prepublishOnly": "pnpm run build && pnpm run test"
   },
   "peerDependencies": {
     "@x402/core": ">=2.28.0"
@@ -48,5 +73,8 @@
     "tsup": "^9.0.0",
     "typescript": "^5.9.3",
     "vitest": "^5.0.5"
+  },
+  "publishConfig": {
+    "access": "public"
   }
 }
