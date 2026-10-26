@@ -81,7 +81,7 @@ The reference facilitator runs on testnet at `https://x402-xrpl-auth-capture.onr
 The package isn't on npm yet. Build it from source:
 
 ```bash
-git clone https://github.com/Meredithhelipigeon/x402-xrpl-auth-capture
+git clone https://github.com/sponge-ai-lab/x402-xrpl-auth-capture
 cd x402-xrpl-auth-capture
 pnpm install
 pnpm --filter x402-auth-capture-xrpl build
