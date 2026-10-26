@@ -45,7 +45,7 @@ const client = new x402Client()
 const response = await wrapFetchWithPayment(fetch, client)("https://api.example.com/quote?symbol=XRP");
 ```
 
-Seller and facilitator examples, the HTTP interfaces, the security model and the limitations are in the [repository README](https://github.com/Meredithhelipigeon/x402-xrpl-auth-capture#readme). The wire format and verification rules are in the [binding specification](https://github.com/Meredithhelipigeon/x402-xrpl-auth-capture/blob/main/specs/scheme_auth_capture_xrpl.md).
+Seller and facilitator examples, the HTTP interfaces, the security model and the limitations are in the [repository README](https://github.com/sponge-ai-lab/x402-xrpl-auth-capture#readme). The wire format and verification rules are in the [binding specification](https://github.com/sponge-ai-lab/x402-xrpl-auth-capture/blob/main/specs/scheme_auth_capture_xrpl.md).
 
 ## License
 

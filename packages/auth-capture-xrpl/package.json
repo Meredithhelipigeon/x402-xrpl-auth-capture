@@ -14,14 +14,14 @@
     "http-402",
     "micropayments"
   ],
-  "homepage": "https://github.com/Meredithhelipigeon/x402-xrpl-auth-capture#readme",
+  "homepage": "https://github.com/sponge-ai-lab/x402-xrpl-auth-capture#readme",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/Meredithhelipigeon/x402-xrpl-auth-capture.git",
+    "url": "git+https://github.com/sponge-ai-lab/x402-xrpl-auth-capture.git",
     "directory": "packages/auth-capture-xrpl"
   },
   "bugs": {
-    "url": "https://github.com/Meredithhelipigeon/x402-xrpl-auth-capture/issues"
+    "url": "https://github.com/sponge-ai-lab/x402-xrpl-auth-capture/issues"
   },
   "license": "Apache-2.0",
   "type": "module",
