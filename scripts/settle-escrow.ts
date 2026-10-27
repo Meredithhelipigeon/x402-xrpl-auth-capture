@@ -17,6 +17,7 @@ import {
   conditionFromPreimage,
   getEscrowState,
   newPreimage,
+  signOrder,
 } from "../packages/auth-capture-xrpl/src/index.js";
 import { connect, loadWallets, sleep, txLink, wsUrl } from "./lib/testnet.js";
 
@@ -43,6 +44,15 @@ async function main(): Promise<void> {
   };
   try {
     const deadline = Math.floor(Date.now() / 1000) + LOCK_SECONDS;
+    const order = {
+      network: "xrpl:1",
+      orderId: `ord_m3_${Date.now()}`,
+      condition: conditionFromPreimage(newPreimage()),
+      captureDeadline: deadline,
+      payTo: w.seller.classicAddress,
+      amount: AMOUNT,
+      asset: "XRP",
+    };
     const requirements = {
       scheme: "auth-capture",
       network: "xrpl:1" as const,
@@ -55,11 +65,11 @@ async function main(): Promise<void> {
         assetTransferMethod: "sequence",
         areFeesSponsored: false,
         operatorType: "custom",
-        captureAuthorizer: w.arbiter.classicAddress,
         captureMode: "deferred",
-        orderId: `ord_m3_${Date.now()}`,
-        condition: conditionFromPreimage(newPreimage()),
+        orderId: order.orderId,
+        condition: order.condition,
         captureDeadline: deadline,
+        ...signOrder(w.arbiter, order),
       },
     };
     const buyer = new AuthCaptureXrplClientScheme(new XrplWalletSigner(w.buyer), {

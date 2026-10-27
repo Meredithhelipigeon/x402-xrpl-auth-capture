@@ -1,6 +1,15 @@
 import { describe, expect, it } from "vitest";
 import { Wallet } from "xrpl";
-import { HttpArbiterClient, canonicalJson, signReceipt, verifyReceipt, type UnsignedReceipt } from "../src/arbiter.js";
+import {
+  HttpArbiterClient,
+  canonicalJson,
+  signOrder,
+  signReceipt,
+  verifyOrderSignature,
+  verifyReceipt,
+  type UnsignedReceipt,
+} from "../src/arbiter.js";
+import { conditionFromPreimage, newPreimage } from "../src/condition.js";
 
 const arbiter = Wallet.generate();
 const unsigned: UnsignedReceipt = {
@@ -39,6 +48,51 @@ describe("receipts", () => {
     const other = Wallet.generate();
     expect(verifyReceipt({ ...r, signerPublicKey: other.publicKey })).toEqual({ ok: false, reason: "signer_mismatch" });
     expect(verifyReceipt(r, [other.classicAddress])).toEqual({ ok: false, reason: "untrusted_signer" });
+  });
+});
+
+describe("order signatures", () => {
+  const terms = {
+    network: "xrpl:1",
+    orderId: "ord_1",
+    condition: conditionFromPreimage(newPreimage()),
+    captureDeadline: 1_800_000_150,
+    payTo: Wallet.generate().classicAddress,
+    amount: "1000000",
+    asset: "XRP",
+  };
+
+  it("round-trips, names the signer as captureAuthorizer, and ignores condition case", () => {
+    const s = signOrder(arbiter, terms);
+    expect(s.captureAuthorizer).toBe(arbiter.classicAddress);
+    expect(s.captureAuthorizerPublicKey).toBe(arbiter.publicKey);
+    const full = { ...terms, captureAuthorizer: s.captureAuthorizer };
+    expect(verifyOrderSignature(full, s.captureAuthorizerPublicKey, s.orderSignature)).toBe(true);
+    expect(verifyOrderSignature({ ...full, condition: full.condition.toLowerCase() }, s.captureAuthorizerPublicKey, s.orderSignature)).toBe(true);
+  });
+
+  it.each([
+    ["network", { network: "xrpl:0" }],
+    ["orderId", { orderId: "ord_2" }],
+    ["condition", { condition: conditionFromPreimage(newPreimage()) }],
+    ["captureDeadline", { captureDeadline: 1_800_000_151 }],
+    ["payTo", { payTo: Wallet.generate().classicAddress }],
+    ["amount", { amount: "1000001" }],
+  ])("rejects a changed %s", (_name, patch) => {
+    const s = signOrder(arbiter, terms);
+    expect(verifyOrderSignature({ ...terms, captureAuthorizer: s.captureAuthorizer, ...patch }, s.captureAuthorizerPublicKey, s.orderSignature)).toBe(false);
+  });
+
+  it("rejects a key that is not captureAuthorizer's, even with a valid signature from it", () => {
+    const seller = Wallet.generate();
+    const s = signOrder(seller, terms);
+    expect(verifyOrderSignature({ ...terms, captureAuthorizer: arbiter.classicAddress }, s.captureAuthorizerPublicKey, s.orderSignature)).toBe(false);
+  });
+
+  it("rejects a receipt signature replayed as an order signature", () => {
+    const r = signReceipt(arbiter, unsigned);
+    expect(verifyOrderSignature({ ...terms, captureAuthorizer: arbiter.classicAddress }, r.signerPublicKey, r.signature)).toBe(false);
+    expect(verifyOrderSignature({ ...terms, captureAuthorizer: arbiter.classicAddress }, "zz", "zz")).toBe(false);
   });
 });
 

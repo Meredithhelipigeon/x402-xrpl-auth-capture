@@ -154,7 +154,14 @@ export class AuthCaptureXrplServerScheme implements SchemeNetworkServer {
         const order = (paidOrderId && (await this.reusableOrder(paidOrderId, req))) || (await this.createOrder(req, ctx.resourceInfo.url));
         return {
           ...req,
-          extra: { ...req.extra, orderId: order.orderId, condition: order.condition, captureDeadline: order.captureDeadline },
+          extra: {
+            ...req.extra,
+            orderId: order.orderId,
+            condition: order.condition,
+            captureDeadline: order.captureDeadline,
+            captureAuthorizerPublicKey: order.captureAuthorizerPublicKey,
+            orderSignature: order.orderSignature,
+          },
         };
       }),
     );

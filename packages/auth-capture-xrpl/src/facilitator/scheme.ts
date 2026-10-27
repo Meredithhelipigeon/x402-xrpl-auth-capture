@@ -13,12 +13,13 @@ import { toRippleTime } from "../time.js";
 import {
   ASSET_TRANSFER_METHODS,
   ASSET_XRP,
-  CAPTURE_MODE,
   DYNAMIC_EXTRA_FIELDS,
   ERRORS,
   OPERATOR_TYPE,
   SCHEME,
   isXrplNetwork,
+  minLockFor,
+  orderSignedByAuthorizer,
   reasonForLedgerResult,
   validateExtra,
   type AssetTransferMethod,
@@ -85,14 +86,11 @@ export class AuthCaptureXrplFacilitator implements SchemeNetworkFacilitator {
     this.now = opts.now ?? (() => Math.floor(Date.now() / 1000));
   }
 
+  /** Only what a server reads (`validateFacilitatorSupport` checks `operatorTypes`); the binding fixes everything else. */
   getExtra(_network: Network): Record<string, unknown> {
     return {
       areFeesSponsored: false,
       operatorTypes: [OPERATOR_TYPE],
-      captureModes: [CAPTURE_MODE],
-      // ticketSequence verification exists but is not advertised until the client supports it (stretch goal).
-      assetTransferMethods: ["sequence"],
-      maxLockSeconds: this.maxLockSeconds,
     };
   }
 
@@ -167,13 +165,14 @@ export class AuthCaptureXrplFacilitator implements SchemeNetworkFacilitator {
     // 2. extra, plus the dynamic fields core does not compare for us
     const extraCheck = validateExtra(req.extra, {
       nowSeconds: this.now(),
-      minLockSeconds: this.minLockSeconds,
+      minLockSeconds: minLockFor(req.maxTimeoutSeconds, this.minLockSeconds),
       maxLockSeconds: this.maxLockSeconds,
     });
     if (!extraCheck.ok) return fail(extraCheck.reason);
     const extra = extraCheck.extra;
     const mismatch = dynamicFieldMismatch(payload.accepted.extra, extra);
     if (mismatch) return fail(mismatch);
+    if (!orderSignedByAuthorizer(req, extra)) return fail(ERRORS.orderSignature);
 
     // 3. Decode
     const blob = (payload.payload as { signedTxBlob?: unknown }).signedTxBlob;
@@ -311,6 +310,8 @@ function dynamicFieldMismatch(accepted: Record<string, unknown> | undefined, ext
     orderId: ERRORS.orderId,
     condition: ERRORS.conditionMismatch,
     captureDeadline: ERRORS.captureDeadline,
+    captureAuthorizerPublicKey: ERRORS.orderSignature,
+    orderSignature: ERRORS.orderSignature,
   };
   for (const field of DYNAMIC_EXTRA_FIELDS) {
     const a = accepted?.[field];

@@ -15,6 +15,14 @@ export interface ArbiterOrder {
   captureDeadline: number;
   /** Arbiter classic address. */
   captureAuthorizer: string;
+  /** The key behind `captureAuthorizer`, so buyer and facilitator can check `orderSignature`. */
+  captureAuthorizerPublicKey: string;
+  /**
+   * The arbiter's signature over the order terms (see `signOrder`). Proves the condition is the
+   * arbiter's: without it a seller could name a trusted arbiter but lock the escrow with its own
+   * preimage, then finish the escrow itself.
+   */
+  orderSignature: string;
 }
 
 export type ArbiterOrderStatus = "created" | "funded" | "passed" | "failed" | "finished" | "reclaimed";
@@ -149,6 +157,49 @@ export function canonicalJson(value: unknown): string {
     .filter(([, v]) => v !== undefined)
     .sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0));
   return `{${entries.map(([k, v]) => `${JSON.stringify(k)}:${canonicalJson(v)}`).join(",")}}`;
+}
+
+/** What an order signature covers: everything the buyer's EscrowCreate commits to, plus the order's identity. */
+export interface OrderTerms {
+  network: string;
+  orderId: string;
+  condition: string;
+  captureDeadline: number;
+  captureAuthorizer: string;
+  payTo: string;
+  amount: string;
+  asset: string;
+}
+
+/** Keeps an order signature from being mistaken for any other message the arbiter's key signs. */
+export const ORDER_SIGNATURE_DOMAIN = "x402-auth-capture-xrpl-order-v1";
+
+/** sha256 of the canonical JSON of the terms plus the domain tag, condition uppercased. Uppercase hex. */
+export function orderDigest(terms: OrderTerms): string {
+  const message = canonicalJson({ ...terms, condition: terms.condition.toUpperCase(), domain: ORDER_SIGNATURE_DOMAIN });
+  return createHash("sha256").update(message, "utf8").digest("hex").toUpperCase();
+}
+
+export function signOrder(
+  keys: DeliveryKeys,
+  terms: Omit<OrderTerms, "captureAuthorizer">,
+): Pick<ArbiterOrder, "captureAuthorizer" | "captureAuthorizerPublicKey" | "orderSignature"> {
+  const captureAuthorizer = deriveAddress(keys.publicKey);
+  return {
+    captureAuthorizer,
+    captureAuthorizerPublicKey: keys.publicKey,
+    orderSignature: sign(orderDigest({ ...terms, captureAuthorizer }), keys.privateKey),
+  };
+}
+
+/** True when `signature` is `terms.captureAuthorizer`'s signature over `terms`, made with `publicKey`. */
+export function verifyOrderSignature(terms: OrderTerms, publicKey: unknown, signature: unknown): boolean {
+  if (typeof publicKey !== "string" || typeof signature !== "string") return false;
+  try {
+    return deriveAddress(publicKey) === terms.captureAuthorizer && verify(orderDigest(terms), signature, publicKey);
+  } catch {
+    return false;
+  }
 }
 
 export type UnsignedReceipt = Omit<ArbiterReceipt, "signer" | "signerPublicKey" | "signature">;

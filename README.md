@@ -184,7 +184,7 @@ Run a `ReclaimWatcher` alongside it so expired escrows return to buyers without 
 
 | Route | Purpose |
 | --- | --- |
-| `POST /orders` | Create an order with a fresh condition and deadline |
+| `POST /orders` | Create an order with a fresh condition and deadline, signed by the arbiter so the buyer can tell the condition is the arbiter's |
 | `GET /orders/:id` | Order and status: `created`, `funded`, `passed`, `failed`, `finished` or `reclaimed` |
 | `POST /orders/:id/funding` | Record the escrow funding the order; checked on the ledger |
 | `POST /orders/:id/delivery` | Judge a seller-signed delivery; on PASS, release the escrow; returns a signed receipt |
