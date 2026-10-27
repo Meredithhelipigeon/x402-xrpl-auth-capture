@@ -2,7 +2,7 @@ import type { PaymentPayloadResult, PaymentRequirements, SchemeNetworkClient } f
 import { getRpcUrl, ledgerBufferFromTimeout, type XrplRpcConfig, type XrplSigner } from "@xrpljapan/x402-xrpl";
 import { Client, RippledError, type EscrowCreate } from "xrpl";
 import { toRippleTime } from "../time.js";
-import { ASSET_XRP, SCHEME, isXrplNetwork, validateExtra } from "../types.js";
+import { ASSET_XRP, SCHEME, isXrplNetwork, minLockFor, orderSignedByAuthorizer, validateExtra } from "../types.js";
 
 /** The ledger reads the client needs. Injected in tests. */
 export interface XrplClientLedger {
@@ -67,13 +67,18 @@ export class AuthCaptureXrplClientScheme implements SchemeNetworkClient {
 
     const check = validateExtra(req.extra, {
       nowSeconds: this.now(),
-      minLockSeconds: this.minLockSeconds,
+      minLockSeconds: minLockFor(req.maxTimeoutSeconds, this.minLockSeconds),
       maxLockSeconds: this.maxLockSeconds,
     });
     if (!check.ok) throw new Error(`Refusing to sign: ${check.reason}`);
     const extra = check.extra;
     if (!this.trusted.has(extra.captureAuthorizer)) {
       throw new Error(`Refusing to sign: arbiter ${extra.captureAuthorizer} is not trusted`);
+    }
+    // The seller wrote this 402. Only the arbiter's signature shows the condition is the arbiter's,
+    // not one the seller made up to finish the escrow itself.
+    if (!orderSignedByAuthorizer(req, extra)) {
+      throw new Error(`Refusing to sign: order ${extra.orderId} is not signed by arbiter ${extra.captureAuthorizer}`);
     }
     if ((extra.assetTransferMethod ?? "sequence") !== "sequence") {
       throw new Error(`Unsupported assetTransferMethod: ${extra.assetTransferMethod}`);

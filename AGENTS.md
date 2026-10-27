@@ -75,7 +75,9 @@ Anything that changes this table, the wire format in §3, or how money moves is 
     "captureMode": "deferred",
     "orderId": "ord_7f3c...",
     "condition": "A0258020<64 hex>810120",
-    "captureDeadline": 1761330000
+    "captureDeadline": 1761330000,
+    "captureAuthorizerPublicKey": "ED...",
+    "orderSignature": "<hex>"
   }
 }
 ```
@@ -91,6 +93,8 @@ Anything that changes this table, the wire format in §3, or how money moves is 
 | `orderId` | Yes | Arbiter's order id. Per-402, dynamic. |
 | `condition` | Yes | Hex PREIMAGE-SHA-256 condition, 78 hex chars, uppercase. Per-402, dynamic. |
 | `captureDeadline` | Yes | Absolute Unix seconds. Escrow `CancelAfter` = `captureDeadline − 946684800`. Per-402, dynamic. |
+| `captureAuthorizerPublicKey` | Yes | Hex public key behind `captureAuthorizer`. Per-402, dynamic. |
+| `orderSignature` | Yes | `captureAuthorizer`'s signature over the order terms (§5.3). Per-402, dynamic. The seller writes the 402, so without this a seller could name a trusted arbiter but use a condition whose preimage it holds, then finish the escrow itself. Client and facilitator both check it. |
 
 No `refundDeadline`, `feeRecipient`, `minFeeBps`, `maxFeeBps`: refunds and fees are unsupported on this binding.
 
@@ -189,6 +193,8 @@ export interface ArbiterOrder {
   condition: string;
   captureDeadline: number;   // unix seconds
   captureAuthorizer: string; // arbiter classic address
+  captureAuthorizerPublicKey: string;
+  orderSignature: string;    // see below
 }
 
 export interface ArbiterReceipt {
@@ -212,6 +218,8 @@ export interface Arbiter {
 ```
 
 Also ship `HttpArbiterClient(baseUrl)` implementing `Arbiter` against the HTTP API in §7.2, and `verifyReceipt(receipt)`.
+
+**Order signature.** The arbiter signs every order it creates: `orderSignature = sign(sha256(canonicalJson(terms)))` with the `captureAuthorizer` key (`ripple-keypairs` `sign`), where `terms = { domain: "x402-auth-capture-xrpl-order-v1", network, orderId, condition (uppercase), captureDeadline, captureAuthorizer, payTo, amount, asset }` and canonical JSON sorts keys and has no whitespace. `signOrder` and `verifyOrderSignature` implement it. An ed25519 key needs no XRPL library to sign: it signs the 32 digest bytes.
 
 The fulfillment never leaves the arbiter. The arbiter submits `EscrowFinish` itself and reports the tx hash in the receipt.
 
@@ -262,7 +270,7 @@ The seller signs what it delivers: `sha256(orderId + "\n" + body)` signed with t
 Error codes use the prefix `invalid_auth_capture_xrpl_…`.
 
 1. **Envelope**: `x402Version === 2`; `accepted.scheme === "auth-capture"`; `accepted.network === requirements.network` and is `xrpl:0` or `xrpl:1`; the selected `assetTransferMethod` follows the `exact` XRPL resolution rules.
-2. **`extra`**: `paymentFlow === "escrow"`, `operatorType === "custom"`, `captureMode === "deferred"`, `areFeesSponsored === false`; `condition` well-formed; `captureAuthorizer` a valid classic address; `captureDeadline` an integer in `[now + minLock, now + maxLock]`.
+2. **`extra`**: `paymentFlow === "escrow"`, `operatorType === "custom"`, `captureMode === "deferred"`, `areFeesSponsored === false`; `condition` well-formed; `captureAuthorizer` a valid classic address; `captureDeadline` an integer in `[now + max(minLock, maxTimeoutSeconds + 20), now + maxLock]`; `captureAuthorizerPublicKey` derives to `captureAuthorizer` and `orderSignature` verifies over the order terms with this request's `network`, `payTo`, `amount` and `asset` (else `invalid_auth_capture_xrpl_order_signature`).
 3. **Decode** `signedTxBlob` → `TransactionType === "EscrowCreate"`.
 4. **Destination** `=== payTo`; no `DestinationTag`.
 5. **Amount** is a string of drops `=== requirements.amount`.
@@ -287,7 +295,7 @@ Express, modelled on `@xrpljapan/x402-xrpl`'s `examples/multichain/src/facilitat
 
 HTTP API (Misa will implement the same API later):
 
-- `POST /orders` → `ArbiterOrder` (random 32-byte preimage per order; store in memory or a JSON file).
+- `POST /orders` → `ArbiterOrder` (random 32-byte preimage per order; store in memory or a JSON file), signed per §5.3.
 - `GET /orders/:id` → order + status (`created | funded | passed | failed | finished | reclaimed`).
 - `POST /orders/:id/funding` → record `owner`, `offerSequence`, `txHash`.
 - `POST /orders/:id/delivery` → verify the seller signature against `payTo`; judge; on PASS submit `EscrowFinish` from the arbiter wallet, wait for validation; return a signed `ArbiterReceipt`.

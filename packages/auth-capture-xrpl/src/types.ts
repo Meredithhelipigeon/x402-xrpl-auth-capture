@@ -1,4 +1,5 @@
 import { isValidClassicAddress } from "xrpl";
+import { verifyOrderSignature } from "./arbiter.js";
 import { isWellFormedCondition } from "./condition.js";
 
 /** Wire constants for the XRPL binding of `auth-capture` (AGENTS.md section 3). */
@@ -18,7 +19,7 @@ export const ASSET_TRANSFER_METHODS = ["sequence", "ticketSequence"] as const;
 export type AssetTransferMethod = (typeof ASSET_TRANSFER_METHODS)[number];
 
 /** Fields that change on every 402. @x402/core drops them when matching `accepted`, so the scheme re-checks them. */
-export const DYNAMIC_EXTRA_FIELDS = ["orderId", "condition", "captureDeadline"] as const;
+export const DYNAMIC_EXTRA_FIELDS = ["orderId", "condition", "captureDeadline", "captureAuthorizerPublicKey", "orderSignature"] as const;
 
 /** `PaymentRequirements.extra` for this binding (AGENTS.md section 3.1). */
 export interface AuthCaptureXrplExtra {
@@ -32,6 +33,10 @@ export interface AuthCaptureXrplExtra {
   condition: string;
   /** Absolute Unix seconds. EscrowCreate.CancelAfter = captureDeadline - 946684800. */
   captureDeadline: number;
+  /** Hex public key behind `captureAuthorizer`. */
+  captureAuthorizerPublicKey: string;
+  /** `captureAuthorizer`'s signature over the order terms (`signOrder` in arbiter.ts). */
+  orderSignature: string;
 }
 
 /** `PaymentPayload.payload` for this binding (AGENTS.md section 3.2). */
@@ -56,6 +61,7 @@ export const ERRORS = {
   captureAuthorizer: "invalid_auth_capture_xrpl_capture_authorizer",
   captureDeadline: "invalid_auth_capture_xrpl_capture_deadline",
   orderId: "invalid_auth_capture_xrpl_order_id",
+  orderSignature: "invalid_auth_capture_xrpl_order_signature",
   asset: "invalid_auth_capture_xrpl_asset",
   // 3-7. transaction contents
   payload: "invalid_auth_capture_xrpl_payload",
@@ -100,7 +106,8 @@ export const LEDGER_RESULT_REASONS: Readonly<Record<string, AuthCaptureXrplError
   tecNO_DST: ERRORS.destinationNotFound,
   tecNO_DST_INSUF_XRP: ERRORS.destinationNotFound,
   tecDST_TAG_NEEDED: ERRORS.destinationFlags,
-  tecNO_PERMISSION: ERRORS.destinationFlags,
+  // EscrowCreate returns it when CancelAfter has already passed (rippled EscrowCreate::doApply).
+  tecNO_PERMISSION: ERRORS.captureDeadline,
   tefPAST_SEQ: ERRORS.sequence,
   terPRE_SEQ: ERRORS.sequence,
   tefNO_TICKET: ERRORS.ticket,
@@ -115,6 +122,17 @@ export function reasonForLedgerResult(result: string): AuthCaptureXrplError {
 
 export function isXrplNetwork(network: string): network is XrplNetwork {
   return network === XRPL_NETWORKS.mainnet || network === XRPL_NETWORKS.testnet;
+}
+
+/** Time for a validated EscrowCreate to land: two ledger closes at a pessimistic 10 s, as in `upto` XRPL. */
+export const LANDING_MARGIN_SECONDS = 20;
+
+/**
+ * Shortest lock to accept for these requirements: the policy minimum, and never less than the
+ * whole window the buyer may sign for plus landing time, so the escrow can't expire before it exists.
+ */
+export function minLockFor(maxTimeoutSeconds: number, policyMinLockSeconds: number): number {
+  return Math.max(policyMinLockSeconds, maxTimeoutSeconds + LANDING_MARGIN_SECONDS);
 }
 
 export interface LockWindow {
@@ -160,5 +178,36 @@ export function validateExtra(extra: unknown, window: LockWindow): ExtraCheck {
   ) {
     return { ok: false, reason: ERRORS.captureDeadline };
   }
+  if (typeof e.captureAuthorizerPublicKey !== "string" || !/^[0-9A-Fa-f]{66}$/.test(e.captureAuthorizerPublicKey)) {
+    return { ok: false, reason: ERRORS.orderSignature };
+  }
+  if (typeof e.orderSignature !== "string" || !/^[0-9A-Fa-f]+$/.test(e.orderSignature)) {
+    return { ok: false, reason: ERRORS.orderSignature };
+  }
   return { ok: true, extra: e as unknown as AuthCaptureXrplExtra };
+}
+
+/**
+ * True when the capture authorizer signed this order for exactly these requirements. Run by the
+ * client before signing and by the facilitator before relaying: the seller writes the 402, so only
+ * this signature shows the condition came from the arbiter and not from the seller.
+ */
+export function orderSignedByAuthorizer(
+  req: { network: string; payTo: string; amount: string; asset: string },
+  extra: AuthCaptureXrplExtra,
+): boolean {
+  return verifyOrderSignature(
+    {
+      network: req.network,
+      orderId: extra.orderId,
+      condition: extra.condition,
+      captureDeadline: extra.captureDeadline,
+      captureAuthorizer: extra.captureAuthorizer,
+      payTo: req.payTo,
+      amount: req.amount,
+      asset: req.asset,
+    },
+    extra.captureAuthorizerPublicKey,
+    extra.orderSignature,
+  );
 }

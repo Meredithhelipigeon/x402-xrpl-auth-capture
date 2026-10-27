@@ -8,6 +8,7 @@ import {
   getEscrowState,
   isXrplNetwork,
   newPreimage,
+  signOrder,
   signReceipt,
   toRippleTime,
   verifyDelivery,
@@ -117,16 +118,20 @@ app.post("/orders", (req, res) => {
     throw new HttpError(400, "payTo and amount (drops) are required");
   }
   const preimage = newPreimage();
-  const order: Order = {
+  const orderTerms = {
+    network: input.network,
     orderId: `ord_${randomBytes(8).toString("hex")}`,
     condition: conditionFromPreimage(preimage),
     captureDeadline: Math.floor(Date.now() / 1000) + LOCK_SECONDS,
-    captureAuthorizer: arbiterWallet.classicAddress,
-    status: "created",
-    network: input.network,
     payTo: input.payTo,
     amount: input.amount,
     asset: input.asset,
+  };
+  const order: Order = {
+    ...orderTerms,
+    // Signing the terms is what lets the buyer tell this condition from one the seller made up.
+    ...signOrder(arbiterWallet, orderTerms),
+    status: "created",
     resource: input.resource,
     terms: input.terms,
     preimage,
@@ -139,6 +144,8 @@ app.post("/orders", (req, res) => {
     condition: order.condition,
     captureDeadline: order.captureDeadline,
     captureAuthorizer: order.captureAuthorizer,
+    captureAuthorizerPublicKey: order.captureAuthorizerPublicKey,
+    orderSignature: order.orderSignature,
   });
 });
 

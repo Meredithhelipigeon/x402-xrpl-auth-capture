@@ -6,6 +6,7 @@ import { AuthCaptureXrplClientScheme, type XrplClientLedger } from "../src/clien
 import { conditionFromPreimage, newPreimage } from "../src/condition.js";
 import { AuthCaptureXrplFacilitator, type XrplLedgerView } from "../src/facilitator/index.js";
 import { toRippleTime } from "../src/time.js";
+import { withOrderSignature, withoutOrderSignature } from "./order-fixture.js";
 
 const NOW = 1_800_000_000;
 const LEDGER = 2_000;
@@ -15,7 +16,7 @@ const arbiter = Wallet.generate();
 const condition = conditionFromPreimage(newPreimage());
 
 function requirements(extra: Record<string, unknown> = {}): PaymentRequirements {
-  return {
+  return withOrderSignature({
     scheme: "auth-capture",
     network: "xrpl:1",
     amount: "1000000",
@@ -33,7 +34,7 @@ function requirements(extra: Record<string, unknown> = {}): PaymentRequirements 
       captureDeadline: NOW + 150,
       ...extra,
     },
-  };
+  }, arbiter);
 }
 
 const ledgerState = { sequence: 42, xrpDrops: "100000000", ownerCount: 0 };
@@ -103,11 +104,22 @@ describe("AuthCaptureXrplClientScheme", () => {
     { name: "an untrusted arbiter", c: () => client({ trustedArbiters: [] }), req: requirements(), error: /not trusted/ },
     { name: "a lock longer than maxLockSeconds", c: () => client({ maxLockSeconds: 100 }), req: requirements(), error: /capture_deadline/ },
     { name: "a deadline too close to act on", c: () => client(), req: requirements({ captureDeadline: NOW + 5 }), error: /capture_deadline/ },
+    { name: "a deadline the escrow could land after", c: () => client(), req: requirements({ captureDeadline: NOW + 79 }), error: /capture_deadline/ },
     { name: "a non-deferred capture mode", c: () => client(), req: requirements({ captureMode: "sync" }), error: /capture_mode/ },
     { name: "a non-XRP asset", c: () => client(), req: { ...requirements(), asset: "RLUSD" }, error: /Only XRP/ },
     { name: "a ticketSequence offer", c: () => client(), req: requirements({ assetTransferMethod: "ticketSequence" }), error: /assetTransferMethod/ },
     { name: "a balance below amount + fee + reserve", c: () => client({ ledger: fakeLedger({ xrpDrops: "2200011" }) }), req: requirements(), error: /Insufficient XRP/ },
     { name: "a missing payer account", c: () => client({ ledger: fakeLedger(null) }), req: requirements(), error: /does not exist/ },
+    {
+      // The attack: the seller names the trusted arbiter but locks the escrow with its own preimage.
+      name: "a condition the seller made up and signed itself",
+      c: () => client(),
+      req: withOrderSignature(requirements({ condition: conditionFromPreimage(newPreimage()) }), seller),
+      error: /not signed by arbiter/,
+    },
+    { name: "an order with no arbiter signature", c: () => client(), req: withoutOrderSignature(requirements()), error: /order_signature/ },
+    { name: "an order the arbiter signed for another amount", c: () => client(), req: { ...requirements(), amount: "2000000" }, error: /not signed by arbiter/ },
+    { name: "an order the arbiter signed for another seller", c: () => client(), req: { ...requirements(), payTo: buyer.classicAddress }, error: /not signed by arbiter/ },
   ])("refuses to sign $name", async ({ c, req, error }) => {
     await expect(c().createPaymentPayload(2, req)).rejects.toThrow(error);
   });

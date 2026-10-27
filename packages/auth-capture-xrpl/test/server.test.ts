@@ -2,14 +2,15 @@ import { encodePaymentSignatureHeader } from "@x402/core/http";
 import type { PaymentPayload, PaymentRequirements, SchemePaymentRequiredContext, SettleContext, SettleResultContext } from "@x402/core/types";
 import { describe, expect, it } from "vitest";
 import { Wallet } from "xrpl";
-import type { Arbiter, ArbiterOrderView, CreateOrderInput, RecordFundingInput } from "../src/arbiter.js";
+import { signOrder, verifyOrderSignature, type Arbiter, type ArbiterOrderView, type CreateOrderInput, type RecordFundingInput } from "../src/arbiter.js";
 import { conditionFromPreimage, newPreimage } from "../src/condition.js";
 import { AuthCaptureXrplServerScheme } from "../src/server/index.js";
 import { ERRORS } from "../src/types.js";
 
 const seller = Wallet.generate();
 const buyer = Wallet.generate();
-const arbiterAddress = Wallet.generate().classicAddress;
+const arbiterWallet = Wallet.generate();
+const arbiterAddress = arbiterWallet.classicAddress;
 
 function fakeArbiter() {
   const orders = new Map<string, ArbiterOrderView>();
@@ -18,16 +19,16 @@ function fakeArbiter() {
   const arbiter: Arbiter = {
     createOrder: async (i) => {
       created.push(i);
-      const order: ArbiterOrderView = {
+      const terms = {
+        network: i.network,
         orderId: `ord_${orders.size + 1}`,
         condition: conditionFromPreimage(newPreimage()),
         captureDeadline: 1_800_000_150,
-        captureAuthorizer: arbiterAddress,
-        status: "created",
         payTo: i.payTo,
         amount: i.amount,
-        network: i.network,
+        asset: i.asset,
       };
+      const order: ArbiterOrderView = { ...terms, ...signOrder(arbiterWallet, terms), status: "created" };
       orders.set(order.orderId, order);
       return order;
     },
@@ -82,7 +83,10 @@ describe("AuthCaptureXrplServerScheme", () => {
     const { arbiter, created } = fakeArbiter();
     const s = new AuthCaptureXrplServerScheme({ arbiter, captureAuthorizer: arbiterAddress, terms: () => ({ kind: "quote", symbol: "XRP" }) });
     const [req] = await s.enrichPaymentRequiredResponse(ctxFor([await built(s)]));
-    expect(req!.extra).toMatchObject({ orderId: "ord_1", captureDeadline: 1_800_000_150 });
+    expect(req!.extra).toMatchObject({ orderId: "ord_1", captureDeadline: 1_800_000_150, captureAuthorizerPublicKey: arbiterWallet.publicKey });
+    const e = req!.extra as Record<string, unknown> & { condition: string; orderSignature: string };
+    const terms = { network: req!.network, orderId: "ord_1", condition: e.condition, captureDeadline: 1_800_000_150, captureAuthorizer: arbiterAddress, payTo: req!.payTo, amount: req!.amount, asset: req!.asset };
+    expect(verifyOrderSignature(terms, arbiterWallet.publicKey, e.orderSignature)).toBe(true);
     expect(created).toEqual([
       { network: "xrpl:1", payTo: seller.classicAddress, amount: "1000000", asset: "XRP", resource: "http://localhost/quote?symbol=XRP", terms: { kind: "quote", symbol: "XRP" } },
     ]);

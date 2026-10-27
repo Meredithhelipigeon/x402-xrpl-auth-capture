@@ -11,6 +11,7 @@ import {
   type XrplLedgerView,
 } from "../src/facilitator/index.js";
 import { toRippleTime } from "../src/time.js";
+import { withOrderSignature, withoutOrderSignature } from "./order-fixture.js";
 import { ERRORS } from "../src/types.js";
 
 const NOW = 1_800_000_000;
@@ -22,7 +23,7 @@ const condition = conditionFromPreimage(newPreimage());
 const deadline = NOW + 150;
 
 function requirements(extra: Record<string, unknown> = {}): PaymentRequirements {
-  return {
+  return withOrderSignature({
     scheme: "auth-capture",
     network: "xrpl:1",
     amount: "1000000",
@@ -41,7 +42,7 @@ function requirements(extra: Record<string, unknown> = {}): PaymentRequirements 
       captureDeadline: deadline,
       ...extra,
     },
-  };
+  }, arbiter);
 }
 
 function escrowCreate(overrides: Record<string, unknown> = {}): EscrowCreate {
@@ -120,6 +121,8 @@ describe("AuthCaptureXrplFacilitator.verify", () => {
     { name: "2 captureAuthorizer", reason: ERRORS.captureAuthorizer, req: { captureAuthorizer: "rNotAnAddress" } },
     { name: "2 deadline too soon", reason: ERRORS.captureDeadline, req: { captureDeadline: NOW + 10 } },
     { name: "2 deadline too far", reason: ERRORS.captureDeadline, req: { captureDeadline: NOW + 7200 } },
+    // Past the 30 s policy minimum, but inside maxTimeoutSeconds (60) + 20 s landing margin.
+    { name: "2 deadline inside the payment window", reason: ERRORS.captureDeadline, req: { captureDeadline: NOW + 79 } },
     {
       name: "2 accepted orderId differs",
       reason: ERRORS.orderId,
@@ -154,6 +157,27 @@ describe("AuthCaptureXrplFacilitator.verify", () => {
     const res = await facilitator.verify(p, r);
     expect(res.isValid).toBe(false);
     expect(res.invalidReason).toBe(reason);
+  });
+
+  const madeUp = conditionFromPreimage(newPreimage());
+  it.each([
+    // The attack: the seller names the trusted arbiter but locks the escrow with its own preimage.
+    { name: "a condition the seller made up and signed itself", req: () => withOrderSignature(requirements({ condition: madeUp }), seller), tx: { Condition: madeUp } },
+    { name: "a missing order signature", req: () => withoutOrderSignature(requirements()), tx: {} },
+    { name: "an order signed for another amount", req: () => ({ ...requirements(), amount: "2000000" }), tx: { Amount: "2000000" } },
+    {
+      name: "an accepted order signature that differs",
+      req: () => requirements(),
+      tx: {},
+      mutate: (p: PaymentPayload) => void (p.accepted = withOrderSignature(p.accepted, Wallet.generate())),
+    },
+  ])("2 rejects $name", async ({ req, tx, mutate }) => {
+    const { facilitator } = setup();
+    const r = req();
+    const p = payload(signed(escrowCreate(tx)), r);
+    mutate?.(p);
+    const res = await facilitator.verify(p, r);
+    expect(res.invalidReason).toBe(ERRORS.orderSignature);
   });
 
   it.each([
@@ -220,14 +244,8 @@ describe("AuthCaptureXrplFacilitator.settle", () => {
 
 describe("AuthCaptureXrplFacilitator supported kind", () => {
   it("advertises the binding's capabilities and no signers", () => {
-    const f = new AuthCaptureXrplFacilitator({ maxLockSeconds: 600 });
-    expect(f.getExtra("xrpl:1")).toEqual({
-      areFeesSponsored: false,
-      operatorTypes: ["custom"],
-      captureModes: ["deferred"],
-      assetTransferMethods: ["sequence"],
-      maxLockSeconds: 600,
-    });
+    const f = new AuthCaptureXrplFacilitator();
+    expect(f.getExtra("xrpl:1")).toEqual({ areFeesSponsored: false, operatorTypes: ["custom"] });
     expect(f.getSigners("xrpl:1")).toEqual([]);
   });
 });

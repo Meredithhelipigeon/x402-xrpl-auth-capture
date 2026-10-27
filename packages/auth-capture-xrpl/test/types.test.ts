@@ -17,6 +17,8 @@ function goodExtra(): AuthCaptureXrplExtra {
     orderId: "ord_7f3c",
     condition: conditionFromPreimage(newPreimage()),
     captureDeadline: now + 300,
+    captureAuthorizerPublicKey: Wallet.generate().publicKey,
+    orderSignature: "3045022100AB",
   };
 }
 
@@ -46,6 +48,10 @@ describe("validateExtra", () => {
     ["deadline too far", { captureDeadline: now + 3600 }, ERRORS.captureDeadline],
     ["deadline in milliseconds", { captureDeadline: (now + 300) * 1000 }, ERRORS.captureDeadline],
     ["deadline as a string", { captureDeadline: String(now + 300) }, ERRORS.captureDeadline],
+    ["authorizer key missing", { captureAuthorizerPublicKey: undefined }, ERRORS.orderSignature],
+    ["authorizer key not a key", { captureAuthorizerPublicKey: "ED00" }, ERRORS.orderSignature],
+    ["order signature missing", { orderSignature: undefined }, ERRORS.orderSignature],
+    ["order signature not hex", { orderSignature: "not-hex" }, ERRORS.orderSignature],
   ];
 
   it.each(cases)("rejects %s", (_name, patch, reason) => {
@@ -62,6 +68,7 @@ describe("reasonForLedgerResult", () => {
     expect(reasonForLedgerResult("tecUNFUNDED")).toBe(ERRORS.insufficientFunds);
     expect(reasonForLedgerResult("tecNO_DST")).toBe(ERRORS.destinationNotFound);
     expect(reasonForLedgerResult("tefPAST_SEQ")).toBe(ERRORS.sequence);
+    expect(reasonForLedgerResult("tecNO_PERMISSION")).toBe(ERRORS.captureDeadline);
     expect(reasonForLedgerResult("tecSOMETHING_NEW")).toBe(ERRORS.ledgerRejected);
   });
 });
